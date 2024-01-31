@@ -2,54 +2,56 @@
 
 
 
-Detector::Detector(cv::Mat& camera_frame, std::shared_mutex& mutex): m_new_frame_rq(false), m_camera_frame_MAT(camera_frame), m_mutex(mutex)
+Detector::Detector(cv::Mat& camera_frame, std::mutex& mutex, std::atomic<bool>& sync_var):  m_camera_frame_MAT_ref(camera_frame), m_mutex(mutex), m_new_frame_rq(sync_var)
 {
-	cv::Ptr<cv::SIFT> detector = cv::SIFT::create();
+	m_detector = cv::SIFT::create();
 }
 
-Detector::Detector(int nfeatures, int nOctaveLayers, double contrastThreshold, double edgeThreshold, double sigma, bool enable_precise_upscale, cv::Mat& camera_frame, std::shared_mutex& mutex): m_new_frame_rq(false), m_camera_frame_MAT(camera_frame), m_mutex(mutex)
+Detector::Detector(int nfeatures, int nOctaveLayers, double contrastThreshold, double edgeThreshold, double sigma, bool enable_precise_upscale, cv::Mat& camera_frame, std::mutex& mutex, std::atomic<bool>& sync_var)
+	: m_camera_frame_MAT_ref(camera_frame), m_mutex(mutex), m_new_frame_rq(sync_var)
 {
-	cv::Ptr<cv::SIFT> detector = cv::SIFT::create(nfeatures, nOctaveLayers, contrastThreshold, edgeThreshold, sigma, enable_precise_upscale);
+	m_detector = cv::SIFT::create(nfeatures, nOctaveLayers, contrastThreshold, edgeThreshold, sigma, enable_precise_upscale);
 }
 
-Detector::Detector(size_t max_keypoints, cv::Mat& camera_frame, std::shared_mutex& mutex): m_new_frame_rq(false), m_camera_frame_MAT(camera_frame), m_mutex(mutex)
+Detector::Detector(size_t max_keypoints, cv::Mat& camera_frame, std::mutex& mutex, std::atomic<bool>& sync_var): m_camera_frame_MAT_ref(camera_frame), m_mutex(mutex), m_new_frame_rq(sync_var)
 {
-	cv::Ptr<cv::SIFT> detector = cv::SIFT::create(max_keypoints);
+	m_detector = cv::SIFT::create(max_keypoints);
 }
 
 Detector::~Detector()
 {
 }
 
-void Detector::DetectCompute(cv::Mat mask, CV_OUT std::vector<cv::KeyPoint>& keypoints, cv::Mat descriptors, bool useProvidedKeypoints)
+void Detector::DetectCompute(cv::Mat mask, CV_OUT std::vector<cv::KeyPoint>& keypoints, cv::Mat& descriptors)
 {
+	bool request_not_fullfiled = true;
 	while(true)
 	{
-		if(false) //m_new_frame
+		if(!m_camera_frame_MAT_ref.empty())
 		{
-			std::shared_lock<std::shared_mutex> lock(m_mutex);
-			//m_camera_frame_MAT = slMat2cvMat(image);
-			if(mask.empty())
+			m_mutex.lock();
+			request_not_fullfiled = m_new_frame_rq.load(std::memory_order_acquire);
+			m_mutex.unlock();
+			if(!request_not_fullfiled)
 			{
-				m_detector->detectAndCompute(m_camera_frame_MAT, cv::noArray(), keypoints, descriptors);
+				//std::this_thread::sleep_for(std::chrono::milliseconds(100));
+				if(mask.empty())
+				{
+					m_detector->detectAndCompute(m_camera_frame_MAT_ref, cv::noArray(), keypoints, descriptors, false);
+				}
+				else
+				{
+					m_detector->detectAndCompute(m_camera_frame_MAT_ref, mask, keypoints, descriptors, false);
+				}
+				m_mutex.lock();
+				m_new_frame_rq.store(true, std::memory_order_release);	//notify AugmentedAssembly object about a new request
+				m_mutex.unlock();
 			}
-			else
-			{
-				m_detector->detectAndCompute(m_camera_frame_MAT, mask, keypoints, descriptors);
-			}
-			
-			//m_new_frame_rq = false;
 		}
 	}
 }
 
 void Detector::SetMatForCameraSL(cv::Mat& camera_frame)
 {
-	m_camera_frame_MAT = camera_frame;
+	m_camera_frame_MAT_ref = camera_frame;
 }
-
-void Detector::SetNewFrameReadyFlag()
-{
-	
-}
-

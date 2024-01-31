@@ -10,7 +10,7 @@
 class CameraHandler {
 public:
     //CameraHandler();                 // Default constructor
-    CameraHandler(sl::Mat& detector_frame, std::shared_mutex &mutex);
+    CameraHandler(sl::Mat& camera_frame, std::shared_mutex &mutex);
     ~CameraHandler();                // Destructor
     
     sl::ERROR_CODE GetCameraState();
@@ -18,7 +18,7 @@ public:
     //used in a thread
     void Start();
 
-    void SetMatForDetectorSL(sl::Mat& detector_frame);
+    void SetMatForDetectorSL(sl::Mat& camera_frame);
     void SetWantNewFrameFlag();
 
 
@@ -28,9 +28,8 @@ private:
     sl::ERROR_CODE m_returned_state;
     sl::Mat m_grabbed_frame;
 
-    bool m_new_frame_rq;
     std::shared_mutex& m_mutex;
-    sl::Mat &m_detector_frame;
+    sl::Mat &m_camera_frame_ref;
 
 
 

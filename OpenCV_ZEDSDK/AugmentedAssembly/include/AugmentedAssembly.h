@@ -14,6 +14,8 @@
 #include <mutex> 
 #include <thread> 
 
+#include <chrono>
+
 class AugmentedAssembly {
 
 public:
@@ -24,8 +26,8 @@ public:
 
 private:
     // Private member variables
-    cv::Mat m_grabbed_frame;
-    sl::Mat m_detector_frame_SL;
+    sl::Mat m_grabbed_frame_SL;
+    cv::Mat m_grabbed_frame_MAT;
     cv::Mat m_detector_frame_MAT;
 
     CameraHandler m_zed;
@@ -39,9 +41,12 @@ private:
 
 
     std::shared_mutex m_mutex;
+    std::mutex m_mutex_detector;
+    std::atomic<bool> m_detector_new_frame_rq;
 
+
+    // Mapping between sl::Mat and cv::Mat
     inline cv::Mat slMat2cvMat(sl::Mat& input) {
-        // Mapping between MAT_TYPE and CV_TYPE
         int cv_type = -1;
         cv::Mat ret;
         switch(input.getDataType()) {

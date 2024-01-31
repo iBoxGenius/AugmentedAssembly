@@ -11,24 +11,24 @@
 #include <shared_mutex> 
 #include <mutex> 
 #include <thread> 
-
+#include <string>
 
 class Detector {
 public:
-    Detector(cv::Mat& camera_frame, std::mutex& mutex, std::atomic<bool> &sync_var);                 // Default constructor
-    Detector(int nfeatures, int nOctaveLayers, double contrastThreshold,
-             double edgeThreshold, double sigma, bool enable_precise_upscale,
-             cv::Mat& camera_frame, std::mutex& mutex, std::atomic<bool>& sync_var);
-    Detector(size_t max_keypoints, cv::Mat& camera_frame, std::mutex& mutex, std::atomic<bool>& sync_var);
+    Detector(const std::string type, cv::Mat & camera_frame, std::mutex& mutex, std::atomic<bool>& sync_var);
     ~Detector();                // Destructor
-
 
     //used in a thread
     void DetectCompute(cv::Mat mask, CV_OUT std::vector < cv::KeyPoint > & keypoints, cv::Mat& descriptors);
+
     void SetMatForCameraSL(cv::Mat& camera_frame);
 
 private:
-    cv::Ptr<cv::SIFT> m_detector;
+    std::string m_type;
+    cv::Ptr<cv::SIFT> m_detector_sift;
+    cv::Ptr<cv::ORB> m_detector_orb;
+    cv::Ptr<cv::BRISK> m_detector_brisk;
+
     std::vector<AssemblyPart> components;
     std::mutex &m_mutex;
     std::atomic<bool>& m_new_frame_rq;

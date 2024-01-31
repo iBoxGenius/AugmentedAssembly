@@ -2,7 +2,7 @@
 #include "AugmentedAssembly.h"
 
 
-AugmentedAssembly::AugmentedAssembly() : m_zed(m_grabbed_frame_SL, m_mutex), m_detector(m_detector_frame_MAT, m_mutex_detector, m_detector_new_frame_rq), m_detector_new_frame_rq(true)
+AugmentedAssembly::AugmentedAssembly() : m_zed(m_grabbed_frame_SL, m_mutex), m_detector("SIFT", m_detector_frame_MAT, m_mutex_detector, m_detector_new_frame_rq), m_detector_new_frame_rq(true)
 {
 	//m_zed.SetMatForDetectorSL(m_grabbed_frame_SL);
 	//m_detector.SetMatForCameraSL(m_detector_frame_MAT);
@@ -21,10 +21,6 @@ void AugmentedAssembly::Start()
 	{
 		thread_camera = std::thread(&CameraHandler::Start, std::ref(m_zed));
 		thread_detector = std::thread(&Detector::DetectCompute, std::ref(m_detector), cv::Mat(), std::ref(m_keypoints), std::ref(m_descriptor));
-
-		//m_mutex_detector.lock();
-		//m_detector_new_frame_rq.store(true, std::memory_order_release);
-		//m_mutex.unlock();
 
 		bool time_s = true;
 		auto end_time = std::chrono::high_resolution_clock::now();
@@ -70,7 +66,7 @@ void AugmentedAssembly::Start()
 				m_grabbed_frame_MAT.copyTo(m_detector_frame_MAT);
 				
 				m_mutex_detector.lock();
-				m_detector_new_frame_rq.store(false, std::memory_order_release);		//detector can detect
+				m_detector_new_frame_rq.store(false, std::memory_order_release);		//detector will process the next image -> allowed to detect
 				m_mutex_detector.unlock();
 			}
 

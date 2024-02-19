@@ -2,7 +2,7 @@
 #include "AugmentedAssembly.h"
 
 
-AugmentedAssembly::AugmentedAssembly() : m_zed(m_grabbed_frame_SL, m_mutex), m_detector("SIFT", m_detector_frame_MAT, m_mutex_detector, m_detector_new_frame_rq), m_detector_new_frame_rq(true)
+AugmentedAssembly::AugmentedAssembly() : m_zed(m_grabbed_frame_SL, m_mutex), m_detector("BRISK", m_detector_frame_MAT, m_mutex_detector, m_detector_new_frame_rq), m_detector_new_frame_rq(true)
 {
 	//m_zed.SetMatForDetectorSL(m_grabbed_frame_SL);
 	//m_detector.SetMatForCameraSL(m_detector_frame_MAT);

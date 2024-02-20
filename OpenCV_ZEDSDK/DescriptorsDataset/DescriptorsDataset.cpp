@@ -41,14 +41,20 @@ inline cv::Mat slMat2cvMat(sl::Mat& input) {
 }
 
 
+void IncreaseFocus(sl::Camera& zed, unsigned sharpness)
+{
+    zed.setCameraSettings(sl::VIDEO_SETTINGS::SHARPNESS, sharpness);
+}
+
+
 /*********************************  Unified Camera initializer    *******************************************************/
 void InitCamera(sl::Camera& zed)
 {
     sl::InitParameters init_parameters;
     init_parameters.camera_resolution = sl::RESOLUTION::HD720;
     init_parameters.camera_fps = 30;
-    zed.setCameraSettings(sl::VIDEO_SETTINGS::SHARPNESS, 5);
     auto returned_state = zed.open(init_parameters);
+    zed.setCameraSettings(sl::VIDEO_SETTINGS::SHARPNESS, 5);
     if(returned_state != sl::ERROR_CODE::SUCCESS) {
         std::cout << "Camera error: " << returned_state << std::endl;
     }
@@ -64,7 +70,7 @@ int main()
     cv::Mat cv_frame;
 
     cv::Mat keypoints_frame;
-    cv::Mat resized_frame;
+    cv::Mat demonstration_frame;
 
     cv::Ptr<cv::BRISK> detector_brisk = cv::BRISK::create();
     cv::Ptr<cv::ORB> detector_orb = cv::ORB::create();
@@ -89,19 +95,40 @@ int main()
     /********************************************************************************************************************/
     cv::String desc_name = "desriptor_";
     unsigned desc_iter = 0;
+    unsigned focus = 0;
     while(true)
     {
-        returned_state = zed.grab();
+        auto returned_state = zed.grab();
         if(returned_state == sl::ERROR_CODE::SUCCESS)
         {
             zed.retrieveImage(grabbed_frame, sl::VIEW::LEFT, sl::MEM::CPU);
             cv_frame = slMat2cvMat(grabbed_frame);
         }
 
-        cv::imshow("Camera feed", cv_frame);
+        if((char)cv::waitKey(30) == 'f')
+        {
+            if(focus < 8)
+            {
+                focus++;
+            }
+            else
+            {
+                focus = 0;
+            }
+            IncreaseFocus(zed, focus);
+        }
+
+        demonstration_frame = cv_frame.clone();
+        detector_brisk->detectAndCompute(demonstration_frame, cv::noArray(), keypoints, descriptor, false);
+        std::cout << "Focus:  " << focus << "  Keypoints:  [" << keypoints.size() << "]" << std::endl;
+        cv::drawKeypoints(demonstration_frame, keypoints, demonstration_frame);
+        keypoints.clear();
+        descriptor.release();
+
+        cv::imshow("Camera feed", demonstration_frame);
         if((char)cv::waitKey(30) == 'q')
         {
-
+            keypoints.clear();
             std::cout << "Snapshot taken [BRISK]: ";
             //detector, descriptor creation
             keypoints_frame = cv_frame.clone();

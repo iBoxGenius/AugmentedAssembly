@@ -93,8 +93,8 @@ void CameraHandler::InitCamera(sl::Camera& zed)
     sl::InitParameters init_parameters;
     init_parameters.camera_resolution = sl::RESOLUTION::HD720;
     init_parameters.camera_fps = 30;
-    zed.setCameraSettings(sl::VIDEO_SETTINGS::SHARPNESS, 5);
     m_returned_state = zed.open(init_parameters);
+    zed.setCameraSettings(sl::VIDEO_SETTINGS::SHARPNESS, 5);
     if(m_returned_state != sl::ERROR_CODE::SUCCESS) 
     {
         m_failure = true;

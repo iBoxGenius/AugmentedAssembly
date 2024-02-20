@@ -21,7 +21,6 @@ public:
     void SetMatForDetectorSL(sl::Mat& camera_frame);
     void SetWantNewFrameFlag();
 
-
 private:
     sl::Camera m_zed;
     bool m_failure;
@@ -31,6 +30,6 @@ private:
     std::shared_mutex& m_mutex;
     sl::Mat &m_camera_frame_ref;
 
-
+    void InitCamera(sl::Camera &zed);
 
 };

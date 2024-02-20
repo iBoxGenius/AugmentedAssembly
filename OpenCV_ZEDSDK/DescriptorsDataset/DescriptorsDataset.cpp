@@ -41,19 +41,24 @@ inline cv::Mat slMat2cvMat(sl::Mat& input) {
 }
 
 
-
-int main()
+/*********************************  Unified Camera initializer    *******************************************************/
+void InitCamera(sl::Camera& zed)
 {
     sl::InitParameters init_parameters;
     init_parameters.camera_resolution = sl::RESOLUTION::HD720;
     init_parameters.camera_fps = 30;
-
-    sl::Camera zed;
-    // Open the camera
+    zed.setCameraSettings(sl::VIDEO_SETTINGS::SHARPNESS, 5);
     auto returned_state = zed.open(init_parameters);
     if(returned_state != sl::ERROR_CODE::SUCCESS) {
         std::cout << "Camera error: " << returned_state << std::endl;
     }
+}
+
+
+int main()
+{
+    sl::Camera zed;
+    InitCamera(zed);
 
     sl::Mat grabbed_frame;
     cv::Mat cv_frame;
@@ -113,11 +118,11 @@ int main()
             /*********************************  Writing the descriptor    *******************************************************/
             
 
-            cv::FileStorage store("descriptor_BRISK_Eiffel.json", cv::FileStorage::APPEND);
+            cv::FileStorage store("descriptor_BRISK_Eiffel_next.json", cv::FileStorage::APPEND);
             cv::write(store, desc_name + std::to_string(desc_iter), descriptor);
             store.release();
             desc_iter++;
-            cv::imwrite("image0.jpg", cv_frame);
+            cv::imwrite("image1.jpg", cv_frame);
             /********************************************************************************************************************/
 
             cv::imshow("Keypoints BRISK", keypoints_frame);

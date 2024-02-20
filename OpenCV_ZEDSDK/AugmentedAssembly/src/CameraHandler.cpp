@@ -21,6 +21,8 @@
 
 CameraHandler::CameraHandler(sl::Mat& camera_frame, std::shared_mutex& mutex): m_camera_frame_ref(camera_frame), m_failure(false), m_mutex(mutex)
 {
+    InitCamera(m_zed);
+    /*
     // Set configuration parameters
     sl::InitParameters init_parameters;
     init_parameters.camera_resolution = sl::RESOLUTION::HD720;
@@ -31,7 +33,7 @@ CameraHandler::CameraHandler(sl::Mat& camera_frame, std::shared_mutex& mutex): m
     if(m_returned_state != sl::ERROR_CODE::SUCCESS) {
         m_failure = true;
     }
-
+    */
 
 }
 
@@ -84,3 +86,17 @@ void CameraHandler::SetWantNewFrameFlag()
 }
 
 
+
+/*********************************  Unified Camera initializer    *******************************************************/
+void CameraHandler::InitCamera(sl::Camera& zed)
+{
+    sl::InitParameters init_parameters;
+    init_parameters.camera_resolution = sl::RESOLUTION::HD720;
+    init_parameters.camera_fps = 30;
+    zed.setCameraSettings(sl::VIDEO_SETTINGS::SHARPNESS, 5);
+    m_returned_state = zed.open(init_parameters);
+    if(m_returned_state != sl::ERROR_CODE::SUCCESS) 
+    {
+        m_failure = true;
+    }
+}

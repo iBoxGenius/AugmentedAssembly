@@ -10,7 +10,7 @@
 #include <opencv2/calib3d.hpp>
 
 
-#define HOMOGRAPHY 1
+//#define HOMOGRAPHY 1
 
 inline cv::Mat slMat2cvMat(sl::Mat& input) {
     int cv_type = -1;
@@ -42,6 +42,18 @@ inline cv::Mat slMat2cvMat(sl::Mat& input) {
     }
     return ret;
 }
+
+
+void distanceFromCentroid(const std::vector<cv::Point2f>& points, cv::Point2f centroid, std::vector<double>& distances)
+{
+    std::vector<cv::Point2f>::const_iterator point;
+    for(point = points.begin(); point != points.end(); ++point)
+    {
+        double distance = std::sqrt((point->x - centroid.x) * (point->x - centroid.x) + (point->y - centroid.y) * (point->y - centroid.y));
+        distances.push_back(distance);
+    }
+}
+
 
 
 
@@ -113,7 +125,7 @@ int main()
     cv::Ptr<cv::BFMatcher> matcher_bf = cv::BFMatcher::create(cv::BFMatcher::BRUTEFORCE_HAMMING, true);
     cv::Ptr<cv::DescriptorMatcher> matcher_flann = cv::DescriptorMatcher::create(cv::DescriptorMatcher::FLANNBASED);
     std::vector< std::vector<cv::DMatch> > knn_matches;
-    const float ratio_thresh = 0.82f;        //poznamka v papieri -> napisat do DP [Distinctive Image Features from Scale-Invariant Keypoints]   !!!!!!!!!!!!!
+    const float ratio_thresh = 0.8f;        //poznamka v papieri -> napisat do DP [Distinctive Image Features from Scale-Invariant Keypoints]   !!!!!!!!!!!!!
 
     while(true)
     {
@@ -138,7 +150,7 @@ int main()
         std::vector<cv::DMatch> good_matches;
         if((!descriptor.empty() && !descriptors_from_file[0].empty()))
         {
-            matcher->knnMatch(descriptor, descriptors_from_file[0], knn_matches, 2);
+            matcher->knnMatch(descriptors_from_file[0], descriptor, knn_matches, 2);
             //matcher_bf->match(descriptor, descriptors_from_file[0], good_matches, cv::noArray());
             //matcher_flann->knnMatch(descriptor, descriptors_from_file[0], knn_matches, 2);
             for(size_t i = 0; i < knn_matches.size(); i++)
@@ -166,12 +178,51 @@ int main()
         {
             try
             {
-                /*drawMatches(img_read, keypoints_object, keypoints_frame, keypoints_scene, good_matches, img_matches, cv::Scalar::all(-1),
+
+                /*drawMatches(keypoints_frame, keypoints_scene, img_read, keypoints_object, good_matches, img_matches, cv::Scalar::all(-1),
                             cv::Scalar::all(-1), std::vector<char>(), cv::DrawMatchesFlags::DEFAULT);*/
 
-                drawMatches(keypoints_frame, keypoints_scene, img_read, keypoints_object, good_matches, img_matches, cv::Scalar::all(-1),
+
+                std::vector<cv::Point2f> points;
+                std::vector<cv::KeyPoint>::iterator keypoint;
+
+                /************************************* Centroid calculation *********************************************************/
+                for(size_t i = 0; i < good_matches.size(); i++)
+                {
+                    points.push_back(keypoints_scene[good_matches[i].trainIdx].pt);
+                }
+                cv::Moments m = cv::moments(points, false);
+                cv::Point2f centroid(m.m10/m.m00, m.m01 / m.m00);
+                cv::circle(keypoints_frame, centroid, 50, cv::Scalar(0, 0, 255), 5);
+                /********************************************************************************************************************/
+
+                /************************************* Spatial filtering *********************************************************/
+
+                std::vector<double> distances;
+                distanceFromCentroid(points, centroid, distances);
+
+                cv::Scalar mu, sigma;
+                cv::meanStdDev(distances, mu, sigma);
+
+                //std::cout << mu.val[0] << ", " << sigma.val[0] << std::endl;
+
+                std::vector<cv::KeyPoint> filtered;
+                std::vector<double>::iterator distance;
+                for(size_t i = 0; i < distances.size(); ++i)
+                {
+                    if(distances[i] < (mu.val[0] + 2.0 * sigma.val[0]))
+                    {
+                        filtered.push_back(keypoints_scene[good_matches[i].trainIdx]);
+                    }
+                }
+                /********************************************************************************************************************/
+
+
+                drawMatches(img_read, keypoints_object, keypoints_frame, keypoints_scene, good_matches, img_matches, cv::Scalar::all(-1),
                             cv::Scalar::all(-1), std::vector<char>(), cv::DrawMatchesFlags::DEFAULT);
-                //cv::drawKeypoints(keypoints_frame, keypoints_scene, keypoints_frame);
+
+                cv::drawKeypoints(keypoints_frame, filtered, keypoints_frame);
+                imshow("Keypoints CAMERA", keypoints_frame);
                 //cv::drawKeypoints(img_read_keypoints, keypoints_object, img_read_keypoints);
             }
             catch(const cv::Exception& e) 
@@ -190,7 +241,8 @@ int main()
             }
             //imshow("Keypoints CAMERA", keypoints_frame);
             //imshow("Keypoints IMAGE", img_read_keypoints);
-
+            cv::Rect myROI(500, 350, 125, 125);
+            cv::Mat test = img_read(myROI);
             
             /*********************************  Find homography    *******************************************************/
 #ifdef HOMOGRAPHY
@@ -202,47 +254,85 @@ int main()
             std::vector<cv::Point2f> scene_corners(4);
             try
             {
-
-                for(size_t i = 0; i < good_matches.size(); i++)
-                //for(size_t i = 0; i < 4; i++)
+                if(good_matches.size() >= 4)
                 {
-                    //-- Get the keypoints from the good matches
-                    obj.push_back(keypoints_object[good_matches[i].queryIdx].pt);
-                    scene.push_back(keypoints_scene[good_matches[i].trainIdx].pt);
+                    for(size_t i = 0; i < good_matches.size(); i++)
+                    {
+                        obj.push_back(keypoints_object[good_matches[i].queryIdx].pt);
+                        scene.push_back(keypoints_scene[good_matches[i].trainIdx].pt);
+                    }
+
+                    cv::Mat H = cv::findHomography(obj, scene, cv::RANSAC, 9);
+                    //-- Get the corners from the image_1 ( the object to be "detected" )
+                    cv::Rect myROI(500, 350, 125, 125);
+                    cv::Mat cut_out_img = img_read_homography(myROI);
+                    cut_out_img = img_read_homography;
+
+                    obj_corners[0] = cv::Point2f(0, 0);
+                    obj_corners[1] = cv::Point2f((float)cut_out_img.cols, 0);
+                    obj_corners[2] = cv::Point2f((float)cut_out_img.cols, (float)cut_out_img.rows);
+                    obj_corners[3] = cv::Point2f(0, (float)cut_out_img.rows);
+                    //obj_corners[0] = cv::Point2f(500, 350);
+                    //obj_corners[1] = cv::Point2f(625, 475);
+                    //obj_corners[2] = cv::Point2f(625, 475);
+                    //obj_corners[3] = cv::Point2f(500, 350);
+                    if(!H.empty())
+                    {
+                        cv::perspectiveTransform(obj_corners, scene_corners, H);
+                    }
+
+                    bool flag = false;
+                    for(unsigned i = 0; i < scene_corners.size(); i++)
+                    {
+                        if(scene_corners[i].x > 1080 || scene_corners[i].x < 0)
+                        {
+                            flag = true;
+                        }
+                        if(scene_corners[i].y > 720 || scene_corners[i].y < 0)
+                        {
+                            flag = true;
+                        }
+                    }
+                    //-- Draw lines between the corners (the mapped object in the scene - image_2 )
+                    if(!flag)
+                    {
+                        /*
+                        line(img_matches, scene_corners[0] + cv::Point2f((float)cut_out_img.cols, 0),
+                             scene_corners[1] + cv::Point2f((float)cut_out_img.cols, 0), cv::Scalar(0, 255, 0), 4);
+                        line(img_matches, scene_corners[1] + cv::Point2f((float)cut_out_img.cols, 0),
+                             scene_corners[2] + cv::Point2f((float)cut_out_img.cols, 0), cv::Scalar(0, 255, 0), 4);
+                        line(img_matches, scene_corners[2] + cv::Point2f((float)cut_out_img.cols, 0),
+                             scene_corners[3] + cv::Point2f((float)cut_out_img.cols, 0), cv::Scalar(0, 255, 0), 4);
+                        line(img_matches, scene_corners[3] + cv::Point2f((float)cut_out_img.cols, 0),
+                             scene_corners[0] + cv::Point2f((float)cut_out_img.cols, 0), cv::Scalar(0, 255, 0), 4);
+                        */                    
+
+                        /*
+                        line(img_matches, scene_corners[0] + cv::Point2f((float)img_read_homography.cols, 0),
+                             scene_corners[1] + cv::Point2f((float)img_read_homography.cols, 0), cv::Scalar(0, 255, 0), 4);
+                        line(img_matches, scene_corners[1] + cv::Point2f((float)img_read_homography.cols, 0),
+                             scene_corners[2] + cv::Point2f((float)img_read_homography.cols, 0), cv::Scalar(0, 255, 0), 4);
+                        line(img_matches, scene_corners[2] + cv::Point2f((float)img_read_homography.cols, 0),
+                             scene_corners[3] + cv::Point2f((float)img_read_homography.cols, 0), cv::Scalar(0, 255, 0), 4);
+                        line(img_matches, scene_corners[3] + cv::Point2f((float)img_read_homography.cols, 0),
+                             scene_corners[0] + cv::Point2f((float)img_read_homography.cols, 0), cv::Scalar(0, 255, 0), 4);
+                        */
+                        /*
+                        cv::line(img_matches, scene_corners[0], scene_corners[1], cv::Scalar(0, 255, 0), 2);
+                        cv::line(img_matches, scene_corners[1], scene_corners[2], cv::Scalar(0, 255, 0), 2);
+                        cv::line(img_matches, scene_corners[2], scene_corners[3], cv::Scalar(0, 255, 0), 2);
+                        cv::line(img_matches, scene_corners[3], scene_corners[0], cv::Scalar(0, 255, 0), 2);
+                        */
+                    }
+                    flag = false;
+                    //-- Show detected matches
                 }
-                cv::Mat H = cv::findHomography(obj, scene, cv::RANSAC);
-                //-- Get the corners from the image_1 ( the object to be "detected" )
-                obj_corners[0] = cv::Point2f(0, 0);
-                obj_corners[1] = cv::Point2f((float)img_read_homography.cols, 0);
-                obj_corners[2] = cv::Point2f((float)img_read_homography.cols, (float)img_read_homography.rows);
-                obj_corners[3] = cv::Point2f(0, (float)img_read_homography.rows);
-                //obj_corners[0] = cv::Point2f(500, 350);
-                //obj_corners[1] = cv::Point2f(625, 475);
-                //obj_corners[2] = cv::Point2f(625, 475);
-                //obj_corners[3] = cv::Point2f(500, 350);
-                cv::perspectiveTransform(obj_corners, scene_corners, H);
             }
             catch(const cv::Exception& e)
             {
                 std::cerr << "OpenCV exception: " << e.what() << std::endl;
                 return -1;
             }
-            //-- Draw lines between the corners (the mapped object in the scene - image_2 )
-            /*
-            line(img_matches, scene_corners[0] + cv::Point2f((float)img_read_homography.cols, 0),
-                 scene_corners[1] + cv::Point2f((float)img_read_homography.cols, 0), cv::Scalar(0, 255, 0), 4);
-            line(img_matches, scene_corners[1] + cv::Point2f((float)img_read_homography.cols, 0),
-                 scene_corners[2] + cv::Point2f((float)img_read_homography.cols, 0), cv::Scalar(0, 255, 0), 4);
-            line(img_matches, scene_corners[2] + cv::Point2f((float)img_read_homography.cols, 0),
-                 scene_corners[3] + cv::Point2f((float)img_read_homography.cols, 0), cv::Scalar(0, 255, 0), 4);
-            line(img_matches, scene_corners[3] + cv::Point2f((float)img_read_homography.cols, 0),
-                 scene_corners[0] + cv::Point2f((float)img_read_homography.cols, 0), cv::Scalar(0, 255, 0), 4);
-            */
-            cv::line(img_matches, scene_corners[0], scene_corners[1], cv::Scalar(0, 255, 0), 2);
-            cv::line(img_matches, scene_corners[1], scene_corners[2], cv::Scalar(0, 255, 0), 2);
-            cv::line(img_matches, scene_corners[2], scene_corners[3], cv::Scalar(0, 255, 0), 2);
-            cv::line(img_matches, scene_corners[3], scene_corners[0], cv::Scalar(0, 255, 0), 2);
-            //-- Show detected matches
             imshow("Good Matches & Object detection", img_matches);
 
 
@@ -254,7 +344,7 @@ int main()
 
             /******************** clear ***********************/
             keypoints_scene.clear();
-            descriptor.release();
+            //descriptor.release();
             good_matches.clear();
             knn_matches.clear();
 

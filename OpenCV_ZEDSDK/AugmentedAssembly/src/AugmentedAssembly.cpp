@@ -2,7 +2,7 @@
 #include "AugmentedAssembly.h"
 
 
-AugmentedAssembly::AugmentedAssembly() : m_zed(m_grabbed_frame_SL, m_mutex), m_detector("BRISK", m_detector_frame_MAT, m_mutex_detector, m_detector_new_frame_rq), m_detector_new_frame_rq(true)
+AugmentedAssembly::AugmentedAssembly() : m_zed(m_grabbed_frame_SL, m_mutex), m_detector(m_method, m_detector_frame_MAT, m_mutex_detector, m_detector_new_frame_rq), m_detector_new_frame_rq(true)
 {
 	//m_zed.SetMatForDetectorSL(m_grabbed_frame_SL);
 	//m_detector.SetMatForCameraSL(m_detector_frame_MAT);
@@ -32,7 +32,7 @@ void AugmentedAssembly::Start()
 	if(m_zed.GetCameraState() == sl::ERROR_CODE::SUCCESS)
 	{
 		thread_camera = std::thread(&CameraHandler::Start, std::ref(m_zed));
-		thread_detector = std::thread(&Detector::DetectCompute, std::ref(m_detector), cv::Mat(), std::ref(m_keypoints), std::ref(m_descriptor));
+		thread_detector = std::thread(&Detector::DetectCompute, std::ref(m_detector), cv::Mat(), std::ref(m_keypoints_scene), std::ref(m_descriptor_scene));
 
 		bool time_s = true;
 		auto end_time = std::chrono::high_resolution_clock::now();
@@ -69,6 +69,12 @@ void AugmentedAssembly::Start()
 			m_mutex_detector.unlock();
 			if(detector_requested && !m_grabbed_frame_MAT.empty())
 			{
+
+				/*
+				* Perhaps the detector should have m_detector_frame_MAT_new  AND m_detector_frame_MAT_old 
+				*  where the old one should be provided for the Matching Process
+				*/
+
 				if(time_s)
 				{
 					start_time = std::chrono::high_resolution_clock::now();
@@ -81,8 +87,7 @@ void AugmentedAssembly::Start()
 					time_s = true;
 				}
 				std::cout << "Detector request, time elapsed:	" << dur << " ms" << std::endl;
-				std::cout << "	Keypoints size: " << m_keypoints.size() << std::endl;
-				//std::cout << "	Descriptor size: " << m_descriptor.size() << std::endl;
+				std::cout << "	Keypoints size: " << m_keypoints_scene.size() << std::endl;
 				std::cout << "-----------------------------" << std::endl;
 
 				std::shared_lock<std::shared_mutex> lock(m_mutex);
@@ -90,7 +95,7 @@ void AugmentedAssembly::Start()
 
 				/************************************* Keypoints = demonstration ****************************************************/
 				keypoints_image_show = m_grabbed_frame_MAT.clone();
-				keypoints_show = m_keypoints;
+				keypoints_show = m_keypoints_scene;
 				/********************************************************************************************************************/
 				
 				m_mutex_detector.lock();

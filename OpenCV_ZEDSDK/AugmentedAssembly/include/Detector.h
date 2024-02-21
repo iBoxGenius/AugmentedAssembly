@@ -1,6 +1,7 @@
 #pragma once
 
 #include "AssemblyPart.h"
+#include "Enums.hpp"
 
 #include <opencv2/core.hpp>
 #include <opencv2/imgcodecs.hpp>
@@ -13,9 +14,10 @@
 #include <thread> 
 #include <string>
 
+
 class Detector {
 public:
-    Detector(const std::string type, cv::Mat & camera_frame, std::mutex& mutex, std::atomic<bool>& sync_var);
+    Detector(Method method, cv::Mat & camera_frame, std::mutex& mutex, std::atomic<bool>& sync_var);
     ~Detector();                // Destructor
 
     //used in a thread
@@ -24,10 +26,11 @@ public:
     void SetMatForCameraSL(cv::Mat& camera_frame);
 
 private:
-    std::string m_type;
+    //std::string m_type;
     cv::Ptr<cv::SIFT> m_detector_sift;
     cv::Ptr<cv::ORB> m_detector_orb;
     cv::Ptr<cv::BRISK> m_detector_brisk;
+    Method m_method;
 
     std::vector<AssemblyPart> components;
     std::mutex &m_mutex;

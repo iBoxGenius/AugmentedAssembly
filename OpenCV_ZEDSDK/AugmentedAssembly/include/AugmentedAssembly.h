@@ -2,6 +2,7 @@
 
 #include "CameraHandler.h"
 #include "Detector.h"
+#include "Enums.hpp"
 #include <sl/Camera.hpp>
 
 #include <opencv2/core.hpp>
@@ -32,13 +33,20 @@ private:
 
     CameraHandler m_zed;
     Detector m_detector;
+    /*
+    * Each assembly part will have its own matcher
+    * std::vector<AssemblyPart> assembly_parts;     -> each has an instance of Matcher class
+    *                                               
+    * AssemblyPart has a method which starts the matching process ==> thread function -> comparing based on the number of descriptors
+    *       AugmentedAssembly fires up the threads (by batches of x (== 4 ?))       //same handling logic as the Detector class, in terms of mutexes and atomic<bool>, cv::Mat reference
+    */
 
     std::thread thread_camera;
     std::thread thread_detector;
 
-    std::vector<cv::KeyPoint> m_keypoints;
-    cv::Mat m_descriptor;
-
+    std::vector<cv::KeyPoint> m_keypoints_scene;
+    cv::Mat m_descriptor_scene;
+    Method m_method = Method::BRISK;
 
     std::shared_mutex m_mutex;
     std::mutex m_mutex_detector;

@@ -8,7 +8,7 @@ AssemblyPart::~AssemblyPart()
 {
 }
 
-void AssemblyPart::SetDescriptor(cv::Mat& desc)	//check if x*128
+void AssemblyPart::SetDescriptor(cv::Mat& desc)	
 {
 	m_descriptor = desc;
 }

@@ -40,7 +40,7 @@ CameraHandler::CameraHandler(sl::Mat& camera_frame, std::shared_mutex& mutex): m
 
 CameraHandler::~CameraHandler()
 {
-
+    m_zed.close();
 }
 
 sl::ERROR_CODE CameraHandler::GetCameraState()

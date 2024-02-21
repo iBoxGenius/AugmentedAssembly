@@ -69,8 +69,7 @@ private:
         default: break;
         }
 
-        auto xd = input.getPtr<sl::uchar1>(sl::MEM::CPU);
-        if(xd != NULL)
+        if(input.getPtr<sl::uchar1>(sl::MEM::CPU) != NULL)
         {
             return cv::Mat(input.getHeight(), input.getWidth(), cv_type, input.getPtr<sl::uchar1>(sl::MEM::CPU));
         }

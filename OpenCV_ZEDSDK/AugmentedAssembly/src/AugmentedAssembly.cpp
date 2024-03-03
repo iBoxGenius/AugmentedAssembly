@@ -2,7 +2,7 @@
 #include "AugmentedAssembly.h"
 
 
-AugmentedAssembly::AugmentedAssembly() : m_zed(m_grabbed_frame_SL, m_mutex), m_detector(m_method, m_detector_frame_MAT, m_mutex_detector, m_detector_new_frame_rq), m_detector_new_frame_rq(true)
+AugmentedAssembly::AugmentedAssembly(): m_zed(m_grabbed_frame_SL, m_mutex), m_detector(m_method, m_detector_frame_MAT_new, m_mutex_detector, m_detector_new_frame_rq), m_detector_new_frame_rq(true), m_mutex_parts(m_parts_cnt)
 {
 	//m_zed.SetMatForDetectorSL(m_grabbed_frame_SL);
 	//m_detector.SetMatForCameraSL(m_detector_frame_MAT);
@@ -12,6 +12,16 @@ AugmentedAssembly::AugmentedAssembly() : m_zed(m_grabbed_frame_SL, m_mutex), m_d
 	{
 		std::cout << "Error occured " << camera_ret_state << std::endl;
 	}
+
+
+	for(size_t i = 0; i < m_parts_cnt; i++)
+	{
+		m_parts_new_rq[i] = true;
+		m_assembly_parts.push_back(AssemblyPart(m_method, std::filesystem::path(std::filesystem::current_path() / ("resources/object" + std::to_string(i))).make_preferred(),
+																				std::filesystem::path(std::filesystem::current_path() / ("resources/object" + std::to_string(i))).make_preferred(),
+																				m_mutex_parts[i], m_parts_new_rq[i]));
+	}
+	
 }
 
 /*
@@ -34,11 +44,17 @@ void AugmentedAssembly::Start()
 		thread_camera = std::thread(&CameraHandler::Start, std::ref(m_zed));
 		thread_detector = std::thread(&Detector::DetectCompute, std::ref(m_detector), cv::Mat(), std::ref(m_keypoints_scene), std::ref(m_descriptor_scene));
 
+		for(size_t i = 0; i < m_parts_cnt; i++)
+		{
+			m_threads_parts.push_back(std::thread(&AssemblyPart::FindMatches, std::ref(m_assembly_parts[i]), std::ref(m_descriptor_scene), std::ref(m_keypoints_scene)));
+		}
+
 		bool time_s = true;
 		auto end_time = std::chrono::high_resolution_clock::now();
 		auto start_time = std::chrono::high_resolution_clock::now();
 		auto dur = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time).count();
 		bool detector_requested = false;
+		bool matcher_requested = false;
 
 
 		auto end_time_loop = std::chrono::high_resolution_clock::now();
@@ -48,7 +64,7 @@ void AugmentedAssembly::Start()
 		cv::Mat keypoints_image_show;
 		std::vector<cv::KeyPoint> keypoints_show;
 
-		std::cout << "Number of threads:  " << std::thread::hardware_concurrency() << std::endl;
+		//std::cout << "Number of threads:  " << std::thread::hardware_concurrency() << std::endl;
 		while(true)
 		{
 			//start_time_loop = std::chrono::high_resolution_clock::now();
@@ -64,17 +80,36 @@ void AugmentedAssembly::Start()
 				}
 			}
 
+
 			m_mutex_detector.lock();
 			detector_requested = m_detector_new_frame_rq.load(std::memory_order_acquire);
 			m_mutex_detector.unlock();
-			if(detector_requested && !m_grabbed_frame_MAT.empty())
+			if(detector_requested && !m_grabbed_frame_MAT.empty())									//detector finished 
 			{
+				/*************************	Matcher request	 **********************************/
+				for(size_t i = 0; i < m_parts_cnt; i++)
+				{
+					m_mutex.lock();
+					matcher_requested = m_parts_new_rq[i].load(std::memory_order_acquire);
+					m_mutex.unlock();
+
+					if(matcher_requested)
+					{
+						m_assembly_parts[i].SetNewSceneParam(m_descriptor_scene, m_keypoints_scene);
+						m_mutex_detector.lock();
+						m_parts_new_rq[i].store(false, std::memory_order_release);		//AssemblyPart(s) can try to match from a new set of keypoints/desc
+						m_mutex_detector.unlock();
+					}
+				}
+				/*************************	Matcher request	 **********************************/
+
 
 				/*
 				* Perhaps the detector should have m_detector_frame_MAT_new  AND m_detector_frame_MAT_old 
 				*  where the old one should be provided for the Matching Process
 				*/
 
+				/*
 				if(time_s)
 				{
 					start_time = std::chrono::high_resolution_clock::now();
@@ -89,9 +124,9 @@ void AugmentedAssembly::Start()
 				std::cout << "Detector request, time elapsed:	" << dur << " ms" << std::endl;
 				std::cout << "	Keypoints size: " << m_keypoints_scene.size() << std::endl;
 				std::cout << "-----------------------------" << std::endl;
-
+				*/
 				std::shared_lock<std::shared_mutex> lock(m_mutex);
-				m_grabbed_frame_MAT.copyTo(m_detector_frame_MAT);
+				m_grabbed_frame_MAT.copyTo(m_detector_frame_MAT_new);
 
 				/************************************* Keypoints = demonstration ****************************************************/
 				keypoints_image_show = m_grabbed_frame_MAT.clone();
@@ -125,6 +160,11 @@ AugmentedAssembly::~AugmentedAssembly()
 	{
 		thread_camera.join();
 		thread_detector.join();
+
+		for(auto& th : m_threads_parts)
+		{
+			th.join();
+		}
 	}
 }
 

@@ -19,7 +19,7 @@ public:
     ~Matcher();                // Destructor
 
     void Match(const cv::Mat& descriptor_object, const cv::Mat& descriptor_scene,
-               const std::vector<cv::KeyPoint>& keypoints_scene,std::vector<cv::DMatch>&good_matches);
+               const std::vector<cv::KeyPoint>& keypoints_scene, std::vector<cv::DMatch>& good_matches_filtered);
 
 private:
     cv::Ptr<cv::DescriptorMatcher> m_matcher_sift;
@@ -32,6 +32,6 @@ private:
 
     void FilterOutliersLoweTest(std::vector< std::vector<cv::DMatch>>& knn_matches, std::vector<cv::DMatch>& good_matches);
     void DistanceFromCentroid(const std::vector<cv::Point2f>& points, cv::Point2f centroid, std::vector<double>& distances);
-    void FilterOutliersSpatial(const std::vector<cv::KeyPoint>& keypoints_scene, std::vector<cv::DMatch>& good_matches);
+    void FilterOutliersSpatial(const std::vector<cv::KeyPoint>& keypoints_scene, std::vector<cv::DMatch>& good_matches, std::vector<cv::DMatch>& good_matches_filtered);
 
 };

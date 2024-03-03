@@ -3,6 +3,7 @@
 #include "CameraHandler.h"
 #include "Detector.h"
 #include "Enums.hpp"
+#include "AssemblyPart.h"
 #include <sl/Camera.hpp>
 
 #include <opencv2/core.hpp>
@@ -17,6 +18,8 @@
 
 #include <chrono>
 
+constexpr size_t parts_cnt = 4;
+
 class AugmentedAssembly {
 
 public:
@@ -26,10 +29,15 @@ public:
     void Start();
 
 private:
+    const Method m_method = Method::BRISK;
+    const size_t m_parts_cnt = parts_cnt;
+
+
     // Private member variables
     sl::Mat m_grabbed_frame_SL;
     cv::Mat m_grabbed_frame_MAT;
-    cv::Mat m_detector_frame_MAT;
+    cv::Mat m_detector_frame_MAT_new;
+    cv::Mat m_detector_frame_MAT_old;
 
     CameraHandler m_zed;
     Detector m_detector;
@@ -40,13 +48,17 @@ private:
     * AssemblyPart has a method which starts the matching process ==> thread function -> comparing based on the number of descriptors
     *       AugmentedAssembly fires up the threads (by batches of x (== 4 ?))       //same handling logic as the Detector class, in terms of mutexes and atomic<bool>, cv::Mat reference
     */
+    std::vector<cv::DMatch> best_good_matches_filtered;
+    std::vector<AssemblyPart> m_assembly_parts;
+    std::vector<std::thread> m_threads_parts;
+    std::vector<std::mutex> m_mutex_parts;                  //mutexes used for notifying the main thread that new object locations have been updated
+    std::array<std::atomic<bool>, parts_cnt> m_parts_new_rq;        //std::array, fixed size at compile time, atomics can be created
 
     std::thread thread_camera;
     std::thread thread_detector;
 
     std::vector<cv::KeyPoint> m_keypoints_scene;
     cv::Mat m_descriptor_scene;
-    Method m_method = Method::BRISK;
 
     std::shared_mutex m_mutex;
     std::mutex m_mutex_detector;

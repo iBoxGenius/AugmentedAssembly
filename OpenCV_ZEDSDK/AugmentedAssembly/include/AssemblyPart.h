@@ -6,19 +6,49 @@
 #include <opencv2/features2d.hpp>
 #include <opencv2/imgproc.hpp>
 
+#include <filesystem>
+#include <iostream>
+#include <chrono>
+#include <thread>
+#include "Enums.hpp"
+#include "Matcher.h"
+
 class AssemblyPart {
 public:
-    AssemblyPart();                 // Default constructor
+    AssemblyPart(Method method, std::filesystem::path path_to_images, std::filesystem::path path_to_json, std::mutex& mutex, std::atomic<bool>& sync_var);
     ~AssemblyPart();                // Destructor
 
-    void SetDescriptor(cv::Mat& desc);
-    cv::Mat GetDescriptor();
+    void SetDescriptors(std::vector<cv::Mat>& desc);
+    std::vector<cv::Mat> GetDescriptors();
+
+    void SetNewSceneParam(cv::Mat& descriptor_scene, std::vector<cv::KeyPoint> keypoints_scene);
+    //void FindMatches(const cv::Mat& descriptor_scene, const std::vector<cv::KeyPoint>& keypoints_scene);
+    //Thread function
+    void FindMatches(const cv::Mat& descriptor_scene, const std::vector<cv::KeyPoint>& keypoints_scene);
 
 private:
+    const size_t iID;
+    static size_t iLiving;
+    static size_t iTotal;
+
     std::vector<cv::Mat> m_images;
     std::vector<std::vector<cv::KeyPoint>> m_keypoints;       //keypoints per image
-    cv::Mat m_descriptor;
-    
+    std::vector<cv::Mat> m_descriptors;
+
+    std::mutex& m_mutex;                                      //mutexes used for notifying the main thread that new object locations have been updated
+    std::atomic<bool>& m_new_kp_rq;
+    cv::Mat m_descriptor_scene_local_cpy;
+    std::vector<cv::KeyPoint> m_keypoints_scene_local_cpy;    //std::vector
+
+    cv::Ptr<cv::DescriptorMatcher> m_matcher_sift;
+    cv::Ptr<cv::DescriptorMatcher> m_matcher_orb;
+    cv::Ptr<cv::DescriptorMatcher> m_matcher_brisk;
+    Method m_method;
+    void GetKeypointsFromImgs(std::filesystem::path path_to_images, std::filesystem::path path_to_json);
+
+    std::vector<Matcher> m_matchers;
+    std::vector<std::vector<cv::DMatch>> m_good_matches_filtered;
+    //void FindBestMatch();
 };
 
 

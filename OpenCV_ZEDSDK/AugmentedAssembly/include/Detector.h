@@ -14,16 +14,22 @@
 #include <thread> 
 #include <string>
 
+#include <Windows.h>
+
+constexpr double KP_RETAIN = 0.8;
+constexpr int KP_RETAIN_BODER_SIZE = 15;
 
 class Detector {
 public:
     Detector(Method method, cv::Mat & camera_frame, std::mutex& mutex, std::atomic<bool>& sync_var);
+    //Detector(Method method, cv::Mat& camera_frame);
     ~Detector();                // Destructor
 
     //used in a thread
     void DetectCompute(cv::Mat mask, CV_OUT std::vector < cv::KeyPoint > & keypoints, cv::Mat& descriptors);
 
     void SetMatForCameraSL(cv::Mat& camera_frame);
+    int GetDescriptorSize();
 
 private:
     //std::string m_type;

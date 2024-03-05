@@ -22,6 +22,11 @@ AugmentedAssembly::AugmentedAssembly(): m_zed(m_grabbed_frame_SL, m_mutex), m_de
 																				m_mutex_parts[i], m_parts_new_rq[i]));
 	}
 	
+
+	//to evade reallocations
+	m_keypoints_scene.reserve(KP_MAX);
+	cv::Mat briskDescriptors(KP_MAX, m_detector.GetDescriptorSize(), CV_8U);		//only for BRISK
+	m_descriptor_scene = briskDescriptors;
 }
 
 /*
@@ -44,9 +49,10 @@ void AugmentedAssembly::Start()
 		thread_camera = std::thread(&CameraHandler::Start, std::ref(m_zed));
 		thread_detector = std::thread(&Detector::DetectCompute, std::ref(m_detector), cv::Mat(), std::ref(m_keypoints_scene), std::ref(m_descriptor_scene));
 
+		std::vector<cv::Point2f> scene_corners(4);
 		for(size_t i = 0; i < m_parts_cnt; i++)
 		{
-			m_threads_parts.push_back(std::thread(&AssemblyPart::FindMatches, std::ref(m_assembly_parts[i]), std::ref(m_descriptor_scene), std::ref(m_keypoints_scene)));
+			m_threads_parts.push_back(std::move(std::thread(&AssemblyPart::FindMatches, std::ref(m_assembly_parts[i]), std::ref(m_descriptor_scene), std::ref(m_keypoints_scene), std::ref(scene_corners))));
 		}
 
 		bool time_s = true;
@@ -71,44 +77,42 @@ void AugmentedAssembly::Start()
 
 			if((m_grabbed_frame_SL.getHeight() != 0) && (m_grabbed_frame_SL.getWidth() != 0))
 			{
-				cv::waitKey(10);
 				std::shared_lock<std::shared_mutex> lock(m_mutex);
 				slMat2cvMat(m_grabbed_frame_SL).copyTo(m_grabbed_frame_MAT);
+				lock.unlock();
 				if(!m_grabbed_frame_MAT.empty())
 				{
+					if(!scene_corners.empty())
+					{
+						auto images = m_assembly_parts[0].GetImages();
+
+						/*
+						cv::line(m_grabbed_frame_MAT, scene_corners[0], scene_corners[1], cv::Scalar(0, 255, 0), 2);
+						cv::line(m_grabbed_frame_MAT, scene_corners[1], scene_corners[2], cv::Scalar(0, 255, 0), 2);
+						cv::line(m_grabbed_frame_MAT, scene_corners[2], scene_corners[3], cv::Scalar(0, 255, 0), 2);
+						cv::line(m_grabbed_frame_MAT, scene_corners[3], scene_corners[0], cv::Scalar(0, 255, 0), 2);
+						*/
+						line(m_grabbed_frame_MAT, scene_corners[0] + cv::Point2f((float)images[0].cols, 0),
+							 scene_corners[1] + cv::Point2f((float)images[0].cols, 0), cv::Scalar(0, 255, 0), 4);
+						line(m_grabbed_frame_MAT, scene_corners[1] + cv::Point2f((float)images[0].cols, 0),
+							 scene_corners[2] + cv::Point2f((float)images[0].cols, 0), cv::Scalar(0, 255, 0), 4);
+						line(m_grabbed_frame_MAT, scene_corners[2] + cv::Point2f((float)images[0].cols, 0),
+							 scene_corners[3] + cv::Point2f((float)images[0].cols, 0), cv::Scalar(0, 255, 0), 4);
+						line(m_grabbed_frame_MAT, scene_corners[3] + cv::Point2f((float)images[0].cols, 0),
+							 scene_corners[0] + cv::Point2f((float)images[0].cols, 0), cv::Scalar(0, 255, 0), 4);
+						
+					}
+					cv::waitKey(10);
 					cv::imshow("Camera", m_grabbed_frame_MAT);
 				}
 			}
 
-
 			m_mutex_detector.lock();
 			detector_requested = m_detector_new_frame_rq.load(std::memory_order_acquire);
 			m_mutex_detector.unlock();
+
 			if(detector_requested && !m_grabbed_frame_MAT.empty())									//detector finished 
 			{
-				/*************************	Matcher request	 **********************************/
-				for(size_t i = 0; i < m_parts_cnt; i++)
-				{
-					m_mutex.lock();
-					matcher_requested = m_parts_new_rq[i].load(std::memory_order_acquire);
-					m_mutex.unlock();
-
-					if(matcher_requested)
-					{
-						m_assembly_parts[i].SetNewSceneParam(m_descriptor_scene, m_keypoints_scene);
-						m_mutex_detector.lock();
-						m_parts_new_rq[i].store(false, std::memory_order_release);		//AssemblyPart(s) can try to match from a new set of keypoints/desc
-						m_mutex_detector.unlock();
-					}
-				}
-				/*************************	Matcher request	 **********************************/
-
-
-				/*
-				* Perhaps the detector should have m_detector_frame_MAT_new  AND m_detector_frame_MAT_old 
-				*  where the old one should be provided for the Matching Process
-				*/
-
 				/*
 				if(time_s)
 				{
@@ -127,21 +131,97 @@ void AugmentedAssembly::Start()
 				*/
 				std::shared_lock<std::shared_mutex> lock(m_mutex);
 				m_grabbed_frame_MAT.copyTo(m_detector_frame_MAT_new);
+				//lock.unlock();
 
 				/************************************* Keypoints = demonstration ****************************************************/
+				try
+				{
+					/*
+					keypoints_image_show = m_grabbed_frame_MAT.clone();
+					auto filtered = m_assembly_parts[0].GetFilteredMatches()[0];
+					keypoints_show.clear();
+					auto kp_scene = m_assembly_parts[0].GetKpSceneCopy();
+					if(!kp_scene.empty())
+					{
+						for(size_t i = 0; i < filtered.size(); i++)
+						{
+							if(filtered[i].trainIdx <= kp_scene.size())
+							{
+								keypoints_show.push_back(kp_scene[filtered[i].trainIdx]);
+							}
+						}
+
+						/*
+						float minX = INT_MAX, minY = INT_MAX, maxX = INT_MIN, maxY = INT_MIN;
+						for(const cv::KeyPoint& kp : keypoints_show) {
+							minX = std::min(minX, kp.pt.x);
+							minY = std::min(minY, kp.pt.y);
+							maxX = std::max(maxX, kp.pt.x);
+							maxY = std::max(maxY, kp.pt.y);
+						}
+
+						// Define the top-left and bottom-right corners of the rectangle
+						cv::Point topLeft(minX, minY);
+						cv::Point bottomRight(maxX, maxY);
+
+						// Draw a rectangle around all the points
+						cv::rectangle(keypoints_image_show, topLeft, bottomRight, cv::Scalar(0, 255, 0), 2);
+						
+					}
+					*/
+					/*************************	Matcher request	 **********************************/
+
+					for(size_t i = 0; i < m_parts_cnt; i++)
+					{
+						m_mutex_parts[i].lock();
+						matcher_requested = m_parts_new_rq[i].load(std::memory_order_acquire);
+						m_mutex_parts[i].unlock();
+
+						if(matcher_requested)
+						{
+							m_parts_new_rq[i].store(false, std::memory_order_release);		//AssemblyPart(s) can try to match from a new set of keypoints/desc
+							m_assembly_parts[i].SetNewSceneParam(m_descriptor_scene, m_keypoints_scene);
+						}
+					}
+
+					/*************************	Matcher request	 **********************************/
+				}
+				catch(const std::out_of_range& e)
+				{
+					std::cout << "Out of Range error.";
+
+				}
+
+
 				keypoints_image_show = m_grabbed_frame_MAT.clone();
 				keypoints_show = m_keypoints_scene;
+				cv::Mat img_matches;
 				/********************************************************************************************************************/
-				
+
 				m_mutex_detector.lock();
 				m_detector_new_frame_rq.store(false, std::memory_order_release);		//detector will process the next image -> allowed to detect
 				m_mutex_detector.unlock();
+				
 
 				/************************************* Keypoints = demonstration ****************************************************/
 				cv::drawKeypoints(keypoints_image_show, keypoints_show, keypoints_image_show);
 				cv::imshow("Keypoints", keypoints_image_show);
+				keypoints_show.clear();
 				/********************************************************************************************************************/
+
+				/*drawMatches(m_assembly_parts[0].GetImages()[0], m_assembly_parts[0].GetKeypoints()[0], keypoints_image_show, m_keypoints_scene, m_assembly_parts[0].GetFilteredMatches()[0], img_matches, cv::Scalar::all(-1),
+							cv::Scalar::all(-1), std::vector<char>(), cv::DrawMatchesFlags::DEFAULT);
+				if(!img_matches.empty())
+				{
+					cv::imshow("Good Matches", img_matches);
+				}
+				*/
+
+				
+
+
 			}
+			
 
 			//end_time_loop = std::chrono::high_resolution_clock::now();
 			//dur_loop = std::chrono::duration_cast<std::chrono::milliseconds>(end_time_loop - start_time_loop).count();

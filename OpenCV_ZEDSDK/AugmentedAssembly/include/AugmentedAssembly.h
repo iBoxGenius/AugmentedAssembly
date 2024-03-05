@@ -18,7 +18,9 @@
 
 #include <chrono>
 
-constexpr size_t parts_cnt = 4;
+constexpr size_t parts_cnt = 1;
+constexpr size_t KP_MAX = 2000;
+
 
 class AugmentedAssembly {
 

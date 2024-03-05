@@ -13,6 +13,8 @@
 #include "Enums.hpp"
 #include "Matcher.h"
 
+#include <Windows.h>
+
 class AssemblyPart {
 public:
     AssemblyPart(Method method, std::filesystem::path path_to_images, std::filesystem::path path_to_json, std::mutex& mutex, std::atomic<bool>& sync_var);
@@ -20,11 +22,15 @@ public:
 
     void SetDescriptors(std::vector<cv::Mat>& desc);
     std::vector<cv::Mat> GetDescriptors();
+    std::vector<cv::Mat> GetImages();
+    std::vector<std::vector<cv::KeyPoint>> GetKeypoints();
+    std::vector<std::vector<cv::DMatch>> GetFilteredMatches();
+    std::vector<cv::KeyPoint> GetKpSceneCopy();
 
-    void SetNewSceneParam(cv::Mat& descriptor_scene, std::vector<cv::KeyPoint> keypoints_scene);
+    void SetNewSceneParam(cv::Mat descriptor_scene, std::vector<cv::KeyPoint> keypoints_scene);
     //void FindMatches(const cv::Mat& descriptor_scene, const std::vector<cv::KeyPoint>& keypoints_scene);
     //Thread function
-    void FindMatches(const cv::Mat& descriptor_scene, const std::vector<cv::KeyPoint>& keypoints_scene);
+    void FindMatches(const cv::Mat& descriptor_scene, const std::vector<cv::KeyPoint>& keypoints_scene, std::vector<cv::Point2f>& scene_corners);
 
 private:
     const size_t iID;

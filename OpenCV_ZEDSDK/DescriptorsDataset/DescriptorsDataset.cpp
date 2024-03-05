@@ -8,6 +8,7 @@
 #include <opencv2/features2d.hpp>
 #include <opencv2/imgproc.hpp>
 
+#include <string>
 
 inline cv::Mat slMat2cvMat(sl::Mat& input) {
     int cv_type = -1;
@@ -94,6 +95,7 @@ int main()
     */
     /********************************************************************************************************************/
     cv::String desc_name = "desriptor_";
+    cv::String kp_name = "keypoints_";
     unsigned desc_iter = 0;
     unsigned focus = 0;
     while(true)
@@ -119,8 +121,15 @@ int main()
         }
 
         demonstration_frame = cv_frame.clone();
+        start_time = std::chrono::high_resolution_clock::now();
+
         detector_brisk->detectAndCompute(demonstration_frame, cv::noArray(), keypoints, descriptor, false);
-        std::cout << "Focus:  " << focus << "  Keypoints:  [" << keypoints.size() << "]" << std::endl;
+        //std::cout << "Focus:  " << focus << "  Keypoints:  [" << keypoints.size() << "]" << std::endl;
+
+        end_time = std::chrono::high_resolution_clock::now();
+        dur = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time).count();
+        std::cout << "Detector: " << dur << "ms" << "\t" << descriptor.size() << std::endl;
+
         cv::drawKeypoints(demonstration_frame, keypoints, demonstration_frame);
         keypoints.clear();
         descriptor.release();
@@ -144,12 +153,21 @@ int main()
 
             /*********************************  Writing the descriptor    *******************************************************/
             
+            std::string object_name = "object_0";
+            cv::FileStorage store_desc(("descriptor_" + object_name + ".json"), cv::FileStorage::APPEND);
+            cv::write(store_desc, desc_name + std::to_string(desc_iter), descriptor);
+            store_desc.release();
 
-            cv::FileStorage store("descriptor_BRISK_Eiffel_next.json", cv::FileStorage::APPEND);
-            cv::write(store, desc_name + std::to_string(desc_iter), descriptor);
-            store.release();
+            cv::FileStorage store_kp(("keypoints_" + object_name + ".json"), cv::FileStorage::APPEND);
+            cv::write(store_kp, kp_name + std::to_string(desc_iter), keypoints);
+            store_kp.release();
+
+
+            std::string img_type = ".png";
+            std::string str_image = object_name + "_" + std::to_string(desc_iter) + img_type;
+            cv::imwrite(str_image, cv_frame);
             desc_iter++;
-            cv::imwrite("image1.jpg", cv_frame);
+
             /********************************************************************************************************************/
 
             cv::imshow("Keypoints BRISK", keypoints_frame);

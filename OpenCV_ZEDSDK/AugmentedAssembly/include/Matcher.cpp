@@ -53,8 +53,8 @@ void Matcher::Match(const cv::Mat& descriptor_object, const cv::Mat& descriptor_
     {
         std::vector<cv::DMatch> good_matches;
         FilterOutliersLoweTest(knn_matches, good_matches);
-        //good_matches_filtered = good_matches;
-        FilterOutliersSpatial(keypoints_scene, good_matches, good_matches_filtered);
+        good_matches_filtered = good_matches;
+        //FilterOutliersSpatial(keypoints_scene, good_matches, good_matches_filtered);
     }
 }
 

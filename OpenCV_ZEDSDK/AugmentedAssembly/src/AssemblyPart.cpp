@@ -116,6 +116,7 @@ void AssemblyPart::FindMatches(const cv::Mat& descriptor_scene, const std::vecto
                                 scene.push_back(m_keypoints_scene_local_cpy[m_good_matches_filtered[0][i].trainIdx].pt);
                             }          
                             cv::Mat H = cv::findHomography(obj, scene, cv::RANSAC);
+                            
                             obj_corners[0] = cv::Point2f(0, 0);
                             obj_corners[1] = cv::Point2f((float)m_images[0].cols, 0);
                             obj_corners[2] = cv::Point2f((float)m_images[0].cols, (float)m_images[0].rows);
@@ -140,13 +141,13 @@ void AssemblyPart::FindMatches(const cv::Mat& descriptor_scene, const std::vecto
 
                                 cv::Vec3d euler_angles = rvec * (180.0 / CV_PI);  // Convert radians to degrees
 
-                                /*
+                                
                                 std::cout << "Roll (X-axis): " << euler_angles[0] << " degrees" << std::endl;
                                 std::cout << "Pitch (Y-axis): " << euler_angles[1] << " degrees" << std::endl;
                                 std::cout << "Yaw (Z-axis): " << euler_angles[2] << " degrees" << std::endl;
                                 std::cout << "Matches: " << m_good_matches_filtered[0].size() << std::endl;
                                 std::cout << "-------------------------------------------------------------" << std::endl;
-                                */
+                                
                             }
                         }
                     }

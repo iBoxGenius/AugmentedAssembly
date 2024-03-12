@@ -400,3 +400,8 @@ FodyWeavers.xsd
 # Additional files
 *.bak
 *.vpp.*
+
+#Vtune Intel toolkit
+*VTune*
+DawnCache
+GPUCache

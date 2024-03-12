@@ -71,6 +71,8 @@ void AugmentedAssembly::Start()
 		std::vector<cv::KeyPoint> keypoints_show;
 
 		//std::cout << "Number of threads:  " << std::thread::hardware_concurrency() << std::endl;
+
+		cv::Mat DEMONSTRATION_FRAME;
 		while(true)
 		{
 			//start_time_loop = std::chrono::high_resolution_clock::now();
@@ -79,6 +81,7 @@ void AugmentedAssembly::Start()
 			{
 				std::shared_lock<std::shared_mutex> lock(m_mutex);
 				slMat2cvMat(m_grabbed_frame_SL).copyTo(m_grabbed_frame_MAT);
+				m_grabbed_frame_MAT.copyTo(DEMONSTRATION_FRAME);
 				lock.unlock();
 				if(!m_grabbed_frame_MAT.empty())
 				{
@@ -86,24 +89,16 @@ void AugmentedAssembly::Start()
 					{
 						auto images = m_assembly_parts[0].GetImages();
 
-						/*
-						cv::line(m_grabbed_frame_MAT, scene_corners[0], scene_corners[1], cv::Scalar(0, 255, 0), 2);
-						cv::line(m_grabbed_frame_MAT, scene_corners[1], scene_corners[2], cv::Scalar(0, 255, 0), 2);
-						cv::line(m_grabbed_frame_MAT, scene_corners[2], scene_corners[3], cv::Scalar(0, 255, 0), 2);
-						cv::line(m_grabbed_frame_MAT, scene_corners[3], scene_corners[0], cv::Scalar(0, 255, 0), 2);
-						*/
-						line(m_grabbed_frame_MAT, scene_corners[0] + cv::Point2f((float)images[0].cols, 0),
-							 scene_corners[1] + cv::Point2f((float)images[0].cols, 0), cv::Scalar(0, 255, 0), 4);
-						line(m_grabbed_frame_MAT, scene_corners[1] + cv::Point2f((float)images[0].cols, 0),
-							 scene_corners[2] + cv::Point2f((float)images[0].cols, 0), cv::Scalar(0, 255, 0), 4);
-						line(m_grabbed_frame_MAT, scene_corners[2] + cv::Point2f((float)images[0].cols, 0),
-							 scene_corners[3] + cv::Point2f((float)images[0].cols, 0), cv::Scalar(0, 255, 0), 4);
-						line(m_grabbed_frame_MAT, scene_corners[3] + cv::Point2f((float)images[0].cols, 0),
-							 scene_corners[0] + cv::Point2f((float)images[0].cols, 0), cv::Scalar(0, 255, 0), 4);
+						cv::line(DEMONSTRATION_FRAME, scene_corners[0], scene_corners[1], cv::Scalar(0, 255, 0), 2);
+						cv::line(DEMONSTRATION_FRAME, scene_corners[1], scene_corners[2], cv::Scalar(0, 255, 0), 2);
+						cv::line(DEMONSTRATION_FRAME, scene_corners[2], scene_corners[3], cv::Scalar(0, 255, 0), 2);
+						cv::line(DEMONSTRATION_FRAME, scene_corners[3], scene_corners[0], cv::Scalar(0, 255, 0), 2);
 						
+						cv::imshow("DEMONSTRATION", DEMONSTRATION_FRAME);
 					}
 					cv::waitKey(10);
 					cv::imshow("Camera", m_grabbed_frame_MAT);
+					
 				}
 			}
 

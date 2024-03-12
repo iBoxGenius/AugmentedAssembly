@@ -89,13 +89,13 @@ void Detector::DetectCompute(cv::Mat mask, CV_OUT std::vector<cv::KeyPoint>& key
 					{
 						//m_detector_brisk->detectAndCompute(m_camera_frame_MAT_ref, cv::noArray(), keypoints, descriptors, false);
 						m_detector_brisk->detect(m_camera_frame_MAT_ref, keypoints, cv::noArray());
-						std::cout << "Keypoints ALL:   " << keypoints.size() << std::endl;
+						//std::cout << "Keypoints ALL:   " << keypoints.size() << std::endl;
 						cv::KeyPointsFilter::retainBest(keypoints, keypoints.size() * KP_RETAIN);
-						std::cout << "Keypoints BEST:  " << keypoints.size() << std::endl;
+						//std::cout << "Keypoints BEST:  " << keypoints.size() << std::endl;
 						cv::KeyPointsFilter::runByImageBorder(keypoints, m_camera_frame_MAT_ref.size(), KP_RETAIN_BODER_SIZE);
-						std::cout << "Keypoints BORDER " << keypoints.size() << std::endl;
+						//std::cout << "Keypoints BORDER " << keypoints.size() << std::endl;
 						m_detector_brisk->compute(m_camera_frame_MAT_ref, keypoints, descriptors);
-						std::cout << "-------------------------------" << std::endl;
+						//std::cout << "-------------------------------" << std::endl;
 
 					}
 				}

@@ -1,0 +1,51 @@
+	
+	
+DescriptorsDataset
+	vytvoriť dataset z grayscale obrázkov	= postup = snapshot a následne vyrezať z obrázku daný objekt, čo sa použije pri určovaní pózy (findHomography)
+	skúsiť sa pohrať s parametrami pre BRISK v rámci datasetu -> už rovno s modelom. Aký bude počet významných bodov
+	
+	
+	1. Obrázok z kamery, celý
+	2. Vystrihnúť objekt
+	3. Vytvoriť obrázok 1280x720, ktorý obsahuje vystrihnutý objekt (je tam teda iba ten objekt a zvyšok je čierňava)
+	4. Detekcia významných bodov
+	5. Import do Inkscape
+	6. Dať rozmery strany a image size na veľkosť vystrihnutého objektu (na obrázku bude teda iba ten objekt). VŠETKO V PIXELOCH
+	7. V kóde len použiť rohy obrazu, normálne ako v tutoriále.
+	
+	x. Dá sa to asi zautomatizovať, kde sa nájdu kontúry, potom sa urobí BB a z neho sa budú detekovať významné body. A rozmery BB rovno dať do súboru ako súradnice ktoré sa načítajú a v kóde sa obrázok pri improte rovno vystrihne
+
+Matcher
+	skúsiť ohraničiť významné body obdĺžnikom cv::rect --> je nutné eliminovať outliers
+			--> použiť meanShiftClustering = tým získam zhluky features a podľad toho viem určiť, ktoré sú pre nejaký objekt
+				--nefuguje to tak. Treba asi 'kmeans' a nejako určiť 'K'.
+			--> vyskúšať nie RANSAC ale inú metódu na určenie homografie
+				Homografia dáva počet 'inliers' ako výstupný argument 'mask', mohlo by sa to využiť ak by bolo vyššie množstvo 'outliers' tak by sa zamietla homografia
+				
+				skúsiť zoradiť matched points (možno podľa response)
+	-----------------------------------------------------------------
+	vyskúšať knn_matches[x][x].distance na filtraciu -> pre good_matches
+		double minDist = 100.0; // Adjust this threshold as needed
+		std::vector<cv::DMatch> goodMatches;
+
+		for (const auto& match : matches) {
+			if (match.distance < minDist) {
+				goodMatches.push_back(match);
+			}
+		}
+	----------------------------------------------------------------
+	skúsiť väčší objekt --> treba väčšie objekty s lepšími features
+	
+	--> contours bounding box, ak sa tam nachádza dostatočný počet features?	---- toto by mala vyriešiť homografia, len je treba mať objekty s hustejšou textúrou
+	
+AugmentedAssembly
+	Vytvoriť implementácie pre BRISK, ORB, SIFT -> použiť nejaké šikovné prepínače
+	Vyskúšať DEBUG a RELEASES verziu
+	Skúsiť prehrávať video v pravej hornej časti
+
+Detector
+---> netreba, keypoints sú vytvorené s datasetom, ktoré sa následne len improtujú
+	Abstrahovať Detector o 1 level vyššie.  Jedna implementácia bude pre thread
+											Druhá pre AssemblyPart
+
+

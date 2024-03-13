@@ -29,6 +29,7 @@ Matcher::~Matcher()
 void Matcher::Match(const cv::Mat& descriptor_object, const cv::Mat& descriptor_scene,
                     const std::vector<cv::KeyPoint>& keypoints_scene, std::vector<cv::DMatch>& good_matches_filtered)
 {
+    good_matches_filtered.clear();                      //clear from previous iteration
     std::vector< std::vector<cv::DMatch>> knn_matches;
     if((!descriptor_object.empty() && !descriptor_scene.empty()))
     {
@@ -51,9 +52,10 @@ void Matcher::Match(const cv::Mat& descriptor_object, const cv::Mat& descriptor_
     
     if(!knn_matches.empty() && !keypoints_scene.empty())
     {
-        std::vector<cv::DMatch> good_matches;
-        FilterOutliersLoweTest(knn_matches, good_matches);
-        good_matches_filtered = good_matches;
+        FilterOutliersLoweTest(knn_matches, good_matches_filtered);
+        //std::vector<cv::DMatch> good_matches;
+        //FilterOutliersLoweTest(knn_matches, good_matches);
+        //good_matches_filtered = good_matches;
         //FilterOutliersSpatial(keypoints_scene, good_matches, good_matches_filtered);
     }
 }
@@ -111,51 +113,10 @@ void Matcher::FilterOutliersSpatial(const std::vector<cv::KeyPoint>& keypoints_s
         {
             if(distances[i] < (mu.val[0] + 2.0 * sigma.val[0]))
             {
-                //filtered.push_back(keypoints_scene[good_matches[i].trainIdx]);      ///nieco tu, ze zistit index, ktory v keypoints_scene je good_match podla tohto kriteria a zobrat iba tu dvojicu [trainIdx -- queryIdx]
                 good_matches_filtered.push_back(good_matches[i]);
             }
         }
     }
-    
-
-    ////filter out from the good_matches_filtered ??
-    /*
-    cv::Mat locations(keypoints_scene.size(), 2, CV_32F);
-    for(size_t i = 0; i < keypoints_scene.size(); ++i) {
-        locations.at<float>(i, 0) = keypoints_scene[i].pt.x;
-        locations.at<float>(i, 1) = keypoints_scene[i].pt.y;
-    }
-
-    // Set the number of clusters (you may need to tune this parameter)
-    int numClusters = 5;
-
-    // Set the criteria for k-means
-    cv::TermCriteria criteria(cv::TermCriteria::EPS + cv::TermCriteria::COUNT, 100, 0.2);
-
-    // Perform k-means clustering
-    cv::Mat labels, centers;
-    kmeans(locations, numClusters, labels, criteria, 3, cv::KMEANS_PP_CENTERS, centers);
-
-    // Find the cluster with the highest concentration
-    int maxClusterIdx = 0;
-    int maxClusterSize = 0;
-    for(int i = 0; i < numClusters; ++i) {
-        int clusterSize = countNonZero(labels == i);
-        if(clusterSize > maxClusterSize) {
-            maxClusterSize = clusterSize;
-            maxClusterIdx = i;
-        }
-    }
-
-    // Keep only the keypoints in the cluster with the highest concentration
-    std::vector<cv::KeyPoint> filteredKeypoints;
-    for(size_t i = 0; i < keypoints_scene.size(); ++i) {
-        if(labels.at<int>(i) == maxClusterIdx) {
-            filteredKeypoints.push_back(keypoints_scene[i]);
-        }
-    }
-    */
-
 }
 
 

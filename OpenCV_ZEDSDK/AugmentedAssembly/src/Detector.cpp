@@ -144,4 +144,5 @@ int Detector::GetDescriptorSize()
 		return m_detector_brisk->descriptorSize();
 	}
 
+	return 0;
 }

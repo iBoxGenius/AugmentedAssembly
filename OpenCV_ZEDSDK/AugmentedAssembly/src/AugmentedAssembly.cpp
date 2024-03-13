@@ -4,9 +4,6 @@
 
 AugmentedAssembly::AugmentedAssembly(): m_zed(m_grabbed_frame_SL, m_mutex), m_detector(m_method, m_detector_frame_MAT_new, m_mutex_detector, m_detector_new_frame_rq), m_detector_new_frame_rq(true), m_mutex_parts(m_parts_cnt)
 {
-	//m_zed.SetMatForDetectorSL(m_grabbed_frame_SL);
-	//m_detector.SetMatForCameraSL(m_detector_frame_MAT);
-
 	auto camera_ret_state = m_zed.GetCameraState();
 	if(camera_ret_state  != sl::ERROR_CODE::SUCCESS)
 	{
@@ -49,7 +46,7 @@ void AugmentedAssembly::Start()
 		thread_camera = std::thread(&CameraHandler::Start, std::ref(m_zed));
 		thread_detector = std::thread(&Detector::DetectCompute, std::ref(m_detector), cv::Mat(), std::ref(m_keypoints_scene), std::ref(m_descriptor_scene));
 
-		std::vector<cv::Point2f> scene_corners(4);
+		std::vector<std::vector<cv::Point2f>> scene_corners(6);
 		for(size_t i = 0; i < m_parts_cnt; i++)
 		{
 			m_threads_parts.push_back(std::move(std::thread(&AssemblyPart::FindMatches, std::ref(m_assembly_parts[i]), std::ref(m_descriptor_scene), std::ref(m_keypoints_scene), std::ref(scene_corners))));
@@ -85,17 +82,19 @@ void AugmentedAssembly::Start()
 				lock.unlock();
 				if(!m_grabbed_frame_MAT.empty())
 				{
-					if(!scene_corners.empty())
+					for(size_t i = 0; i < scene_corners.size(); i++)
 					{
-						auto images = m_assembly_parts[0].GetImages();
+						if(!scene_corners[i].empty())
+						{
+							cv::line(DEMONSTRATION_FRAME, scene_corners[i][0], scene_corners[i][1], cv::Scalar(0, 255, 0), 2);
+							cv::line(DEMONSTRATION_FRAME, scene_corners[i][1], scene_corners[i][2], cv::Scalar(0, 255, 0), 2);
+							cv::line(DEMONSTRATION_FRAME, scene_corners[i][2], scene_corners[i][3], cv::Scalar(0, 255, 0), 2);
+							cv::line(DEMONSTRATION_FRAME, scene_corners[i][3], scene_corners[i][0], cv::Scalar(0, 255, 0), 2);
 
-						cv::line(DEMONSTRATION_FRAME, scene_corners[0], scene_corners[1], cv::Scalar(0, 255, 0), 2);
-						cv::line(DEMONSTRATION_FRAME, scene_corners[1], scene_corners[2], cv::Scalar(0, 255, 0), 2);
-						cv::line(DEMONSTRATION_FRAME, scene_corners[2], scene_corners[3], cv::Scalar(0, 255, 0), 2);
-						cv::line(DEMONSTRATION_FRAME, scene_corners[3], scene_corners[0], cv::Scalar(0, 255, 0), 2);
-						
-						cv::imshow("DEMONSTRATION", DEMONSTRATION_FRAME);
+							cv::imshow("DEMONSTRATION", DEMONSTRATION_FRAME);
+						}
 					}
+					
 					cv::waitKey(10);
 					cv::imshow("Camera", m_grabbed_frame_MAT);
 					

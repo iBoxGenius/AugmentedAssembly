@@ -16,7 +16,7 @@
 
 #include <Windows.h>
 
-constexpr double KP_RETAIN = 0.8;
+constexpr double KP_RETAIN = 0.9;
 constexpr int KP_RETAIN_BODER_SIZE = 15;
 
 class Detector {

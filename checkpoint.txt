@@ -15,14 +15,7 @@ DescriptorsDataset
 	
 	x. Dá sa to asi zautomatizovať, kde sa nájdu kontúry, potom sa urobí BB a z neho sa budú detekovať významné body. A rozmery BB rovno dať do súboru ako súradnice ktoré sa načítajú a v kóde sa obrázok pri improte rovno vystrihne
 
-Matcher
-	skúsiť ohraničiť významné body obdĺžnikom cv::rect --> je nutné eliminovať outliers
-			--> použiť meanShiftClustering = tým získam zhluky features a podľad toho viem určiť, ktoré sú pre nejaký objekt
-				--nefuguje to tak. Treba asi 'kmeans' a nejako určiť 'K'.
-			--> vyskúšať nie RANSAC ale inú metódu na určenie homografie
-				Homografia dáva počet 'inliers' ako výstupný argument 'mask', mohlo by sa to využiť ak by bolo vyššie množstvo 'outliers' tak by sa zamietla homografia
-				
-				skúsiť zoradiť matched points (možno podľa response)
+Matcher		
 	-----------------------------------------------------------------
 	vyskúšať knn_matches[x][x].distance na filtraciu -> pre good_matches
 		double minDist = 100.0; // Adjust this threshold as needed
@@ -41,7 +34,6 @@ Matcher
 AugmentedAssembly
 	Vytvoriť implementácie pre BRISK, ORB, SIFT -> použiť nejaké šikovné prepínače
 	Vyskúšať DEBUG a RELEASES verziu
-	Skúsiť prehrávať video v pravej hornej časti
 
 Detector
 ---> netreba, keypoints sú vytvorené s datasetom, ktoré sa následne len improtujú

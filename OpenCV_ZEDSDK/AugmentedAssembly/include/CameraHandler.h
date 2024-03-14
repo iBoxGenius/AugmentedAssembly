@@ -10,7 +10,7 @@
 class CameraHandler {
 public:
     //CameraHandler();                 // Default constructor
-    CameraHandler(sl::Mat& camera_frame, std::shared_mutex &mutex);
+    CameraHandler(sl::Mat& camera_frame_left, sl::Mat& camera_frame_right, std::shared_mutex &mutex);
     ~CameraHandler();                // Destructor
     
     sl::ERROR_CODE GetCameraState();
@@ -25,10 +25,12 @@ private:
     sl::Camera m_zed;
     bool m_failure;
     sl::ERROR_CODE m_returned_state;
-    sl::Mat m_grabbed_frame;
+    sl::Mat m_grabbed_frame_left;
+    sl::Mat m_grabbed_frame_right;
 
     std::shared_mutex& m_mutex;
-    sl::Mat &m_camera_frame_ref;
+    sl::Mat &m_camera_frame_ref_left;
+    sl::Mat& m_camera_frame_ref_right;
 
     void InitCamera(sl::Camera &zed);
 

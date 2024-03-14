@@ -36,8 +36,10 @@ private:
 
 
     // Private member variables
-    sl::Mat m_grabbed_frame_SL;
-    cv::Mat m_grabbed_frame_MAT;
+    sl::Mat m_grabbed_frame_left_SL;
+    sl::Mat m_grabbed_frame_right_SL;
+    cv::Mat m_grabbed_frame_left_MAT;
+    cv::Mat m_grabbed_frame_right_MAT;
     cv::Mat m_detector_frame_MAT_new;
     cv::Mat m_detector_frame_MAT_old;
 

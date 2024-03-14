@@ -2,7 +2,7 @@
 #include "AugmentedAssembly.h"
 
 
-AugmentedAssembly::AugmentedAssembly(): m_zed(m_grabbed_frame_SL, m_mutex), m_detector(m_method, m_detector_frame_MAT_new, m_mutex_detector, m_detector_new_frame_rq), m_detector_new_frame_rq(true), m_mutex_parts(m_parts_cnt)
+AugmentedAssembly::AugmentedAssembly(): m_zed(m_grabbed_frame_left_SL, m_grabbed_frame_right_SL, m_mutex), m_detector(m_method, m_detector_frame_MAT_new, m_mutex_detector, m_detector_new_frame_rq), m_detector_new_frame_rq(true), m_mutex_parts(m_parts_cnt)
 {
 	auto camera_ret_state = m_zed.GetCameraState();
 	if(camera_ret_state  != sl::ERROR_CODE::SUCCESS)
@@ -69,34 +69,44 @@ void AugmentedAssembly::Start()
 
 		//std::cout << "Number of threads:  " << std::thread::hardware_concurrency() << std::endl;
 
-		cv::Mat DEMONSTRATION_FRAME;
+		cv::Mat DEMONSTRATION_FRAME_LEFT;
+		cv::Mat DEMONSTRATION_FRAME_RIGHT;
 		while(true)
 		{
 			//start_time_loop = std::chrono::high_resolution_clock::now();
 
-			if((m_grabbed_frame_SL.getHeight() != 0) && (m_grabbed_frame_SL.getWidth() != 0))
+			if((m_grabbed_frame_left_SL.getHeight() != 0) && (m_grabbed_frame_left_SL.getWidth() != 0))
 			{
 				std::shared_lock<std::shared_mutex> lock(m_mutex);
-				slMat2cvMat(m_grabbed_frame_SL).copyTo(m_grabbed_frame_MAT);
-				m_grabbed_frame_MAT.copyTo(DEMONSTRATION_FRAME);
+				slMat2cvMat(m_grabbed_frame_left_SL).copyTo(m_grabbed_frame_left_MAT);
+				m_grabbed_frame_left_MAT.copyTo(DEMONSTRATION_FRAME_LEFT);
+				slMat2cvMat(m_grabbed_frame_right_SL).copyTo(m_grabbed_frame_right_MAT);
+				m_grabbed_frame_right_MAT.copyTo(DEMONSTRATION_FRAME_RIGHT);
 				lock.unlock();
-				if(!m_grabbed_frame_MAT.empty())
+				if(!m_grabbed_frame_left_MAT.empty())
 				{
 					for(size_t i = 0; i < scene_corners.size(); i++)
 					{
 						if(!scene_corners[i].empty())
 						{
-							cv::line(DEMONSTRATION_FRAME, scene_corners[i][0], scene_corners[i][1], cv::Scalar(0, 255, 0), 2);
-							cv::line(DEMONSTRATION_FRAME, scene_corners[i][1], scene_corners[i][2], cv::Scalar(0, 255, 0), 2);
-							cv::line(DEMONSTRATION_FRAME, scene_corners[i][2], scene_corners[i][3], cv::Scalar(0, 255, 0), 2);
-							cv::line(DEMONSTRATION_FRAME, scene_corners[i][3], scene_corners[i][0], cv::Scalar(0, 255, 0), 2);
+							cv::line(DEMONSTRATION_FRAME_LEFT, scene_corners[i][0], scene_corners[i][1], cv::Scalar(0, 255, 0), 2);
+							cv::line(DEMONSTRATION_FRAME_LEFT, scene_corners[i][1], scene_corners[i][2], cv::Scalar(0, 255, 0), 2);
+							cv::line(DEMONSTRATION_FRAME_LEFT, scene_corners[i][2], scene_corners[i][3], cv::Scalar(0, 255, 0), 2);
+							cv::line(DEMONSTRATION_FRAME_LEFT, scene_corners[i][3], scene_corners[i][0], cv::Scalar(0, 255, 0), 2);
 
-							cv::imshow("DEMONSTRATION", DEMONSTRATION_FRAME);
+							cv::line(DEMONSTRATION_FRAME_RIGHT, scene_corners[i][0], scene_corners[i][1], cv::Scalar(0, 255, 0), 2);
+							cv::line(DEMONSTRATION_FRAME_RIGHT, scene_corners[i][1], scene_corners[i][2], cv::Scalar(0, 255, 0), 2);
+							cv::line(DEMONSTRATION_FRAME_RIGHT, scene_corners[i][2], scene_corners[i][3], cv::Scalar(0, 255, 0), 2);
+							cv::line(DEMONSTRATION_FRAME_RIGHT, scene_corners[i][3], scene_corners[i][0], cv::Scalar(0, 255, 0), 2);
+
+							cv::imshow("DEMONSTRATION_LEFT", DEMONSTRATION_FRAME_LEFT);
+							cv::imshow("DEMONSTRATION_RIGHT", DEMONSTRATION_FRAME_RIGHT);
 						}
 					}
 					
 					cv::waitKey(10);
-					cv::imshow("Camera", m_grabbed_frame_MAT);
+					cv::imshow("Camera_left", m_grabbed_frame_left_MAT);
+					cv::imshow("Camera_right", m_grabbed_frame_right_MAT);
 					
 				}
 			}
@@ -105,7 +115,7 @@ void AugmentedAssembly::Start()
 			detector_requested = m_detector_new_frame_rq.load(std::memory_order_acquire);
 			m_mutex_detector.unlock();
 
-			if(detector_requested && !m_grabbed_frame_MAT.empty())									//detector finished 
+			if(detector_requested && !m_grabbed_frame_left_MAT.empty())									//detector finished 
 			{
 				/*
 				if(time_s)
@@ -124,14 +134,14 @@ void AugmentedAssembly::Start()
 				std::cout << "-----------------------------" << std::endl;
 				*/
 				std::shared_lock<std::shared_mutex> lock(m_mutex);
-				m_grabbed_frame_MAT.copyTo(m_detector_frame_MAT_new);
+				m_grabbed_frame_left_MAT.copyTo(m_detector_frame_MAT_new);
 				//lock.unlock();
 
 				/************************************* Keypoints = demonstration ****************************************************/
 				try
 				{
 					/*
-					keypoints_image_show = m_grabbed_frame_MAT.clone();
+					keypoints_image_show = m_grabbed_frame_left_MAT.clone();
 					auto filtered = m_assembly_parts[0].GetFilteredMatches()[0];
 					keypoints_show.clear();
 					auto kp_scene = m_assembly_parts[0].GetKpSceneCopy();
@@ -187,7 +197,7 @@ void AugmentedAssembly::Start()
 				}
 
 
-				keypoints_image_show = m_grabbed_frame_MAT.clone();
+				keypoints_image_show = m_grabbed_frame_left_MAT.clone();
 				keypoints_show = m_keypoints_scene;
 				cv::Mat img_matches;
 				/********************************************************************************************************************/

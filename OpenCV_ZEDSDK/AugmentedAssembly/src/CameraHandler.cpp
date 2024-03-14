@@ -19,7 +19,7 @@
     m_new_frame = true;
 }*/
 
-CameraHandler::CameraHandler(sl::Mat& camera_frame, std::shared_mutex& mutex): m_camera_frame_ref(camera_frame), m_failure(false), m_mutex(mutex)
+CameraHandler::CameraHandler(sl::Mat& camera_frame_left, sl::Mat& camera_frame_right, std::shared_mutex& mutex): m_camera_frame_ref_left(camera_frame_left), m_camera_frame_ref_right(camera_frame_right) ,m_failure(false), m_mutex(mutex)
 {
     InitCamera(m_zed);
     /*
@@ -59,11 +59,22 @@ void CameraHandler::Start()
             m_returned_state = m_zed.grab();
             if(m_returned_state == sl::ERROR_CODE::SUCCESS)
             {
-                m_zed.retrieveImage(m_grabbed_frame, sl::VIEW::LEFT, sl::MEM::CPU);
+                m_zed.retrieveImage(m_grabbed_frame_left, sl::VIEW::LEFT, sl::MEM::CPU);
+                //m_zed.retrieveImage(m_grabbed_frame_right, sl::VIEW::RIGHT, sl::MEM::CPU);
+                float min, max;
+                sl::Mat depth;
+                //m_zed.getCurrentMinMaxDepth(min, max);
+                m_zed.retrieveMeasure(depth, sl::MEASURE::DEPTH);
+                depth.copyTo(m_grabbed_frame_right);
+
+                
+                //std::cout << "Min: " << min << std::endl;
+                //std::cout << "Max: " << max << std::endl;
             }
             //std::unique_lock<std::shared_mutex> lock(m_mutex);
             m_mutex.lock();
-            m_grabbed_frame.copyTo(m_camera_frame_ref);
+            m_grabbed_frame_left.copyTo(m_camera_frame_ref_left);
+            m_grabbed_frame_right.copyTo(m_camera_frame_ref_right);
             m_mutex.unlock();
         }
     }
@@ -76,7 +87,7 @@ void CameraHandler::Start()
 
 void CameraHandler::SetMatForDetectorSL(sl::Mat& camera_frame)
 {
-    m_camera_frame_ref = camera_frame;
+    m_camera_frame_ref_left = camera_frame;
 }
 
 
@@ -93,6 +104,8 @@ void CameraHandler::InitCamera(sl::Camera& zed)
     sl::InitParameters init_parameters;
     init_parameters.camera_resolution = sl::RESOLUTION::HD720;
     init_parameters.camera_fps = 30;
+    init_parameters.depth_mode = sl::DEPTH_MODE::PERFORMANCE;
+    init_parameters.coordinate_units = sl::UNIT::MILLIMETER;
     m_returned_state = zed.open(init_parameters);
     zed.setCameraSettings(sl::VIDEO_SETTINGS::SHARPNESS, 5);
     if(m_returned_state != sl::ERROR_CODE::SUCCESS) 

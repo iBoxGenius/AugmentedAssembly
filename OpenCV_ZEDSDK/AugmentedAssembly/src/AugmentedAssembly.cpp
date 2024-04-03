@@ -22,8 +22,25 @@ AugmentedAssembly::AugmentedAssembly(): m_zed(m_grabbed_frame_left_SL, m_grabbed
 
 	//to evade reallocations
 	m_keypoints_scene.reserve(KP_MAX);
-	cv::Mat briskDescriptors(KP_MAX, m_detector.GetDescriptorSize(), CV_8U);		//only for BRISK
-	m_descriptor_scene = briskDescriptors;
+	if(m_method == Method::BRISK)
+	{
+		cv::Mat briskDescriptors(KP_MAX, m_detector.GetDescriptorSize(), CV_8U);
+		m_descriptor_scene = briskDescriptors;
+	}
+
+	if(m_method == Method::ORB)
+	{
+		//cv::Mat Descriptors(KP_MAX, m_detector.GetDescriptorSize(), CV_8U);
+		//m_descriptor_scene = Descriptors;
+	}
+
+	if(m_method == Method::SIFT)
+	{
+		//cv::Mat Descriptors(KP_MAX, m_detector.GetDescriptorSize(), CV_8U);
+		//m_descriptor_scene = Descriptors;
+	}
+	
+	
 }
 
 /*
@@ -244,6 +261,7 @@ AugmentedAssembly::~AugmentedAssembly()
 	{
 		thread_camera.join();
 		thread_detector.join();
+		//m_thread_instructions.join();
 
 		for(auto& th : m_threads_parts)
 		{

@@ -60,6 +60,7 @@ private:
 
     std::thread thread_camera;
     std::thread thread_detector;
+    std::thread m_thread_instructions;
 
     std::vector<cv::KeyPoint> m_keypoints_scene;
     cv::Mat m_descriptor_scene;

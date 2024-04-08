@@ -30,7 +30,7 @@ public:
     void SetNewSceneParam(cv::Mat descriptor_scene, std::vector<cv::KeyPoint> keypoints_scene);
     //void FindMatches(const cv::Mat& descriptor_scene, const std::vector<cv::KeyPoint>& keypoints_scene);
     //Thread function
-    void FindMatches(const cv::Mat& descriptor_scene, const std::vector<cv::KeyPoint>& keypoints_scene, std::vector<std::vector<cv::Point2f>>& scene_corners);
+    void FindMatches(const cv::Mat& descriptor_scene, const std::vector<cv::KeyPoint>& keypoints_scene, std::vector<std::vector<cv::Point>>& scene_corners);
 
 private:
     const size_t iID;
@@ -50,7 +50,7 @@ private:
     cv::Ptr<cv::DescriptorMatcher> m_matcher_orb;
     cv::Ptr<cv::DescriptorMatcher> m_matcher_brisk;
     Method m_method;
-    void GetKeypointsFromImgs(std::filesystem::path path_to_images, std::filesystem::path path_to_json);
+    void LoadKeypointsFromImgs(std::filesystem::path path_to_images, std::filesystem::path path_to_json);
 
     std::vector<Matcher> m_matchers;
     std::vector<std::vector<cv::DMatch>> m_good_matches_filtered;

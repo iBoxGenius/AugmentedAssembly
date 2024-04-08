@@ -1,5 +1,5 @@
 #include "Matcher.h"
-
+#include <iostream>
 
 Matcher::Matcher(Method method, const float ratio_thresh): m_ratio_thresh(ratio_thresh), m_method(method)
 {
@@ -29,34 +29,43 @@ Matcher::~Matcher()
 void Matcher::Match(const cv::Mat& descriptor_object, const cv::Mat& descriptor_scene,
                     const std::vector<cv::KeyPoint>& keypoints_scene, std::vector<cv::DMatch>& good_matches_filtered)
 {
-    good_matches_filtered.clear();                      //clear from previous iteration
-    std::vector< std::vector<cv::DMatch>> knn_matches;
-    if((!descriptor_object.empty() && !descriptor_scene.empty()))
+    try
     {
-        if(m_method == Method::SIFT)
+        good_matches_filtered.clear();                      //clear from previous iteration
+        std::vector< std::vector<cv::DMatch>> knn_matches;
+        if((!descriptor_object.empty() && !descriptor_scene.empty()))
         {
-            m_matcher_sift->knnMatch(descriptor_object, descriptor_scene, knn_matches, 2);
-        }
+            if(m_method == Method::SIFT)
+            {
+                m_matcher_sift->knnMatch(descriptor_object, descriptor_scene, knn_matches, 2);
+            }
 
-        if(m_method == Method::ORB)
-        {
-            m_matcher_orb->knnMatch(descriptor_object, descriptor_scene, knn_matches, 2);
-        }
+            if(m_method == Method::ORB)
+            {
+                m_matcher_orb->knnMatch(descriptor_object, descriptor_scene, knn_matches, 2);
+            }
 
-        if(m_method == Method::BRISK)
-        {
-            m_matcher_brisk->knnMatch(descriptor_object, descriptor_scene, knn_matches, 2);
+            if(m_method == Method::BRISK)
+            {
+                m_matcher_brisk->knnMatch(descriptor_object, descriptor_scene, knn_matches, 2);
+            }
         }
-    }
 
     
-    if(!knn_matches.empty() && !keypoints_scene.empty())
+        if(!knn_matches.empty() && !keypoints_scene.empty())
+        {
+            FilterOutliersLoweTest(knn_matches, good_matches_filtered);
+            //std::vector<cv::DMatch> good_matches;
+            //FilterOutliersLoweTest(knn_matches, good_matches);
+            //good_matches_filtered = good_matches;
+            //FilterOutliersSpatial(keypoints_scene, good_matches, good_matches_filtered);
+        }
+
+    }
+    catch(cv::Exception& e)
     {
-        FilterOutliersLoweTest(knn_matches, good_matches_filtered);
-        //std::vector<cv::DMatch> good_matches;
-        //FilterOutliersLoweTest(knn_matches, good_matches);
-        //good_matches_filtered = good_matches;
-        //FilterOutliersSpatial(keypoints_scene, good_matches, good_matches_filtered);
+        const char* err_msg = e.what();
+        std::cout << "exception caught: " << err_msg << std::endl;
     }
 }
 

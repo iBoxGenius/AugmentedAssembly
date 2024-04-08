@@ -55,69 +55,78 @@ void Detector::DetectCompute(cv::Mat mask, CV_OUT std::vector<cv::KeyPoint>& key
 	bool request_not_fullfiled = true;
 	while(true)
 	{
-		if(!m_camera_frame_MAT_ref.empty())
+		try
 		{
-			m_mutex.lock();
-			request_not_fullfiled = m_new_frame_rq.load(std::memory_order_acquire);
-			m_mutex.unlock();
-			if(!request_not_fullfiled)
+			if(!m_camera_frame_MAT_ref.empty())
 			{
-				//std::this_thread::sleep_for(std::chrono::milliseconds(100));
-				start_time_loop = std::chrono::high_resolution_clock::now();
-
-				if(mask.empty())
-				{
-					if(m_method == Method::SIFT)
-					{
-						//m_detector_sift->detectAndCompute(m_camera_frame_MAT_ref, cv::noArray(), keypoints, descriptors, false);
-						m_detector_sift->detect(m_camera_frame_MAT_ref, keypoints, cv::noArray());
-						cv::KeyPointsFilter::retainBest(keypoints, keypoints.size() * KP_RETAIN);
-						cv::KeyPointsFilter::runByImageBorder(keypoints, m_camera_frame_MAT_ref.size(), KP_RETAIN_BODER_SIZE);
-						m_detector_sift->compute(m_camera_frame_MAT_ref, keypoints, descriptors);
-					}
-
-					if(m_method == Method::ORB)
-					{
-						//m_detector_orb->detectAndCompute(m_camera_frame_MAT_ref, cv::noArray(), keypoints, descriptors, false);
-						m_detector_orb->detect(m_camera_frame_MAT_ref, keypoints, cv::noArray());
-						cv::KeyPointsFilter::retainBest(keypoints, keypoints.size() * KP_RETAIN);
-						cv::KeyPointsFilter::runByImageBorder(keypoints, m_camera_frame_MAT_ref.size(), KP_RETAIN_BODER_SIZE);
-						m_detector_orb->compute(m_camera_frame_MAT_ref, keypoints, descriptors);
-					}
-
-					if(m_method == Method::BRISK)
-					{
-						//m_detector_brisk->detectAndCompute(m_camera_frame_MAT_ref, cv::noArray(), keypoints, descriptors, false);
-						m_detector_brisk->detect(m_camera_frame_MAT_ref, keypoints, cv::noArray());
-						//std::cout << "Keypoints ALL:   " << keypoints.size() << std::endl;
-						cv::KeyPointsFilter::retainBest(keypoints, keypoints.size() * KP_RETAIN);
-						//std::cout << "Keypoints BEST:  " << keypoints.size() << std::endl;
-						cv::KeyPointsFilter::runByImageBorder(keypoints, m_camera_frame_MAT_ref.size(), KP_RETAIN_BODER_SIZE);
-						//std::cout << "Keypoints BORDER " << keypoints.size() << std::endl;
-						m_detector_brisk->compute(m_camera_frame_MAT_ref, keypoints, descriptors);
-						//std::cout << "-------------------------------" << std::endl;
-
-					}
-				}
-				else
-				{
-					m_detector_sift->detectAndCompute(m_camera_frame_MAT_ref, mask, keypoints, descriptors, false);
-				}
-
-				{
-					std::lock_guard<std::mutex> lock(m_mutex);
-					m_new_frame_rq.store(true, std::memory_order_release);	//notify AugmentedAssembly object about a new request
-
-				}
-				/*
 				m_mutex.lock();
-				m_new_frame_rq.store(true, std::memory_order_release);	//notify AugmentedAssembly object about a new request
+				request_not_fullfiled = m_new_frame_rq.load(std::memory_order_acquire);
 				m_mutex.unlock();
-				*/
-				end_time_loop = std::chrono::high_resolution_clock::now();
-				dur_loop = std::chrono::duration_cast<std::chrono::milliseconds>(end_time_loop - start_time_loop).count();
-				//std::cout << "Detector: "<< dur_loop << "ms" << "\t" << descriptors.size() << std::endl;
+				if(!request_not_fullfiled)
+				{
+					//std::this_thread::sleep_for(std::chrono::milliseconds(100));
+					start_time_loop = std::chrono::high_resolution_clock::now();
+
+					if(mask.empty())
+					{
+						if(m_method == Method::SIFT)
+						{
+							//m_detector_sift->detectAndCompute(m_camera_frame_MAT_ref, cv::noArray(), keypoints, descriptors, false);
+							m_detector_sift->detect(m_camera_frame_MAT_ref, keypoints, cv::noArray());
+							cv::KeyPointsFilter::retainBest(keypoints, keypoints.size() * KP_RETAIN);
+							cv::KeyPointsFilter::runByImageBorder(keypoints, m_camera_frame_MAT_ref.size(), KP_RETAIN_BODER_SIZE);
+							m_detector_sift->compute(m_camera_frame_MAT_ref, keypoints, descriptors);
+						}
+
+						if(m_method == Method::ORB)
+						{
+							//m_detector_orb->detectAndCompute(m_camera_frame_MAT_ref, cv::noArray(), keypoints, descriptors, false);
+							m_detector_orb->detect(m_camera_frame_MAT_ref, keypoints, cv::noArray());
+							cv::KeyPointsFilter::retainBest(keypoints, keypoints.size() * KP_RETAIN);
+							cv::KeyPointsFilter::runByImageBorder(keypoints, m_camera_frame_MAT_ref.size(), KP_RETAIN_BODER_SIZE);
+							m_detector_orb->compute(m_camera_frame_MAT_ref, keypoints, descriptors);
+						}
+
+						if(m_method == Method::BRISK)
+						{
+							//m_detector_brisk->detectAndCompute(m_camera_frame_MAT_ref, cv::noArray(), keypoints, descriptors, false);
+							m_detector_brisk->detect(m_camera_frame_MAT_ref, keypoints, cv::noArray());
+							//std::cout << "Keypoints ALL:   " << keypoints.size() << std::endl;
+							cv::KeyPointsFilter::retainBest(keypoints, keypoints.size() * KP_RETAIN);
+							//std::cout << "Keypoints BEST:  " << keypoints.size() << std::endl;
+							cv::KeyPointsFilter::runByImageBorder(keypoints, m_camera_frame_MAT_ref.size(), KP_RETAIN_BODER_SIZE);
+							//std::cout << "Keypoints BORDER " << keypoints.size() << std::endl;
+							m_detector_brisk->compute(m_camera_frame_MAT_ref, keypoints, descriptors);
+							//std::cout << "-------------------------------" << std::endl;
+
+						}
+					}
+					else
+					{
+						m_detector_sift->detectAndCompute(m_camera_frame_MAT_ref, mask, keypoints, descriptors, false);
+					}
+
+					{
+						std::lock_guard<std::mutex> lock(m_mutex);
+						m_new_frame_rq.store(true, std::memory_order_release);	//notify AugmentedAssembly object about a new request
+
+					}
+					/*
+					m_mutex.lock();
+					m_new_frame_rq.store(true, std::memory_order_release);	//notify AugmentedAssembly object about a new request
+					m_mutex.unlock();
+					*/
+					end_time_loop = std::chrono::high_resolution_clock::now();
+					dur_loop = std::chrono::duration_cast<std::chrono::milliseconds>(end_time_loop - start_time_loop).count();
+					//std::cout << "Detector: "<< dur_loop << "ms" << "\t" << descriptors.size() << std::endl;
+				}
 			}
+
+
+		}
+		catch(const std::out_of_range& e)
+		{
+			std::cerr << "Vector Out of Range Exception: " << e.what() << std::endl;
 		}
 	}
 }

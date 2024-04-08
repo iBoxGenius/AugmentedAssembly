@@ -1,9 +1,6 @@
-	
-	
 DescriptorsDataset
 	vytvoriť dataset z grayscale obrázkov	= postup = snapshot a následne vyrezať z obrázku daný objekt, čo sa použije pri určovaní pózy (findHomography)
 	skúsiť sa pohrať s parametrami pre BRISK v rámci datasetu -> už rovno s modelom. Aký bude počet významných bodov
-	
 	
 	1. Obrázok z kamery, celý
 	2. Vystrihnúť objekt
@@ -28,16 +25,16 @@ Matcher
 		}
 	----------------------------------------------------------------
 	skúsiť väčší objekt --> treba väčšie objekty s lepšími features
-	
 	--> contours bounding box, ak sa tam nachádza dostatočný počet features?	---- toto by mala vyriešiť homografia, len je treba mať objekty s hustejšou textúrou
 	
 AugmentedAssembly
 	Vytvoriť implementácie pre BRISK, ORB, SIFT -> použiť nejaké šikovné prepínače
 	Vyskúšať DEBUG a RELEASES verziu
 
-Detector
----> netreba, keypoints sú vytvorené s datasetom, ktoré sa následne len improtujú
-	Abstrahovať Detector o 1 level vyššie.  Jedna implementácia bude pre thread
-											Druhá pre AssemblyPart
-
+AugmentedInstructions
+	Blikanie [check]
+	Čakanie
+	Labelling komponentov
+	Text - kde?
+	Nejaká forma poukázania na otočenie komponentu?
 

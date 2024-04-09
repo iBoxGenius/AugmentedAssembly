@@ -6,3 +6,10 @@ enum class Method
     ORB,
     BRISK
 };
+
+enum class AssemblyStates
+{
+    AssemblySetup,
+    AssemblyStep,
+    AssemblyFinal
+};

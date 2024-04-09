@@ -71,11 +71,11 @@ void CameraHandler::Start()
                 //std::cout << "Min: " << min << std::endl;
                 //std::cout << "Max: " << max << std::endl;
             }
-            //std::unique_lock<std::shared_mutex> lock(m_mutex);
-            m_mutex.lock();
-            m_grabbed_frame_left.copyTo(m_camera_frame_ref_left);
-            m_grabbed_frame_right.copyTo(m_camera_frame_ref_right);
-            m_mutex.unlock();
+            {
+                std::unique_lock<std::shared_mutex> lock(m_mutex);
+                m_grabbed_frame_left.copyTo(m_camera_frame_ref_left);
+                m_grabbed_frame_right.copyTo(m_camera_frame_ref_right);
+            }
         }
     }
 }

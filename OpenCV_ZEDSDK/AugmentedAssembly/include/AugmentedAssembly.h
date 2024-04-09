@@ -18,7 +18,6 @@
 
 #include <chrono>
 
-constexpr size_t parts_cnt = 1;
 constexpr size_t KP_MAX = 2000;
 
 
@@ -32,7 +31,7 @@ public:
 
 private:
     const Method m_method = Method::BRISK;
-    const size_t m_parts_cnt = parts_cnt;
+    size_t m_parts_cnt = 0;
 
 
     // Private member variables
@@ -53,10 +52,14 @@ private:
     *       AugmentedAssembly fires up the threads (by batches of x (== 4 ?))       //same handling logic as the Detector class, in terms of mutexes and atomic<bool>, cv::Mat reference
     */
     std::vector<cv::DMatch> best_good_matches_filtered;
+
+    void GetNumberOfParts(std::filesystem::path path_to_parts);
     std::vector<AssemblyPart> m_assembly_parts;
     std::vector<std::thread> m_threads_parts;
-    std::vector<std::mutex> m_mutex_parts;                  //mutexes used for notifying the main thread that new object locations have been updated
-    std::array<std::atomic<bool>, parts_cnt> m_parts_new_rq;        //std::array, fixed size at compile time, atomics can be created
+    //std::vector<std::mutex> m_mutex_parts;                  //mutexes used for notifying the main thread that new object locations have been updated
+    std::unique_ptr < std::vector<std::mutex>> m_mutex_parts;                  //mutexes used for notifying the main thread that new object locations have been updated
+    //std::array<std::atomic<bool>, parts_cnt> m_parts_new_rq;        //std::array, fixed size at compile time, atomics can be created
+    std::unique_ptr<std::vector<std::atomic<bool>>> m_parts_new_rq;
 
     std::thread thread_camera;
     std::thread thread_detector;

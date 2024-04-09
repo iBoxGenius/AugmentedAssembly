@@ -63,6 +63,7 @@ void InitCamera(sl::Camera& zed)
 
 int main()
 {
+    std::string object_name = "object_4";                      ///     < ---------------------------------object name
     sl::Camera zed;
     InitCamera(zed);
 
@@ -92,17 +93,21 @@ int main()
 
     for(size_t i = 0; i < 6; i++)
     {
-        object_images.push_back(cv::imread("object_0_" + std::to_string(i) + ".png", cv::IMREAD_GRAYSCALE));
+        object_images.push_back(cv::imread(object_name + std::string("_") + std::to_string(i) + ".png", cv::IMREAD_GRAYSCALE));
         keypoints.clear();
         descriptor.release();
         //detector, descriptor creation
+        if(object_images[i].empty())
+        {
+            continue;
+        }
         keypoints_frame = object_images[i].clone();
         detector_brisk->detectAndCompute(keypoints_frame, cv::noArray(), keypoints, descriptor, false);
         cv::drawKeypoints(keypoints_frame, keypoints, keypoints_frame);
 
         /*********************************  Writing the descriptor    *******************************************************/
 
-        std::string object_name = "object_0";
+        //std::string object_name = "object_2";
         cv::FileStorage store_desc(("descriptor_" + object_name + ".json"), cv::FileStorage::APPEND);
         cv::write(store_desc, desc_name + std::to_string(desc_iter), descriptor);
         store_desc.release();

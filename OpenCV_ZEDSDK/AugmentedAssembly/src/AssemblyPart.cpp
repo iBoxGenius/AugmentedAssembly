@@ -5,6 +5,33 @@ size_t AssemblyPart::iLiving = 0;
 size_t AssemblyPart::iTotal = 0;
 
 
+bool isRectangularShape(std::vector<cv::Point2f>& pts)
+{
+    // Calculate the cosine of all angles formed by consecutive points
+    std::vector<double> cosines;
+    for(int i = 0; i < 4; ++i)
+    {
+        cv::Point2f v1 = pts[(i + 1) % 4] - pts[i];
+        cv::Point2f v2 = pts[(i + 2) % 4] - pts[(i + 1) % 4];
+        double dot = v1.x * v2.x + v1.y * v2.y;
+        double magnitude = norm(v1) * norm(v2);
+        double cosine = dot / magnitude;
+        cosines.push_back(cosine);
+    }
+
+    // Check if all angles are approximately 90 degrees (cosine close to 0)
+    const double threshold = 0.2; // Adjust threshold as needed
+    for(double cosine : cosines) {
+        if(abs(cosine) > threshold) {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+
+
 AssemblyPart::AssemblyPart(Method method, std::filesystem::path path_to_images, std::filesystem::path path_to_json, std::mutex& mutex, std::atomic<bool>& sync_var): m_method(method), iID(iTotal), m_mutex(mutex), m_new_kp_rq(sync_var)
 {
     iTotal++;
@@ -144,7 +171,7 @@ void AssemblyPart::FindMatches(const cv::Mat& descriptor_scene, const std::vecto
                             dur = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time).count();
                             std::cout << "Matching -> time elapsed:	" << dur << " ms" << std::endl;
                             */
-                            std::cout << "Assembly Part " << iID << std::endl;
+                            //std::cout << "Assembly Part " << iID << std::endl;
 
                             std::cout << "[" << i << "] = " << "Keypoints == " << m_keypoints[i].size() << "   Good Matches == " << m_good_matches_filtered[i].size();
                             //cv::SVD homographySVD(H, cv::SVD::NO_UV);
@@ -166,12 +193,12 @@ void AssemblyPart::FindMatches(const cv::Mat& descriptor_scene, const std::vecto
                             std::cout << "Inliers     size :       " << cv::countNonZero(inliers) << std::endl;
                             std::cout << "-------------------------------------------------------------" << std::endl;
                             */
-                            bool good_H = false;
+                            bool acceptable_H = false;
                             try
                             {
-                                if((det > 0.3) && (det < 1.5))
+                                if((det > 0.2) && (det < 1.7))
                                 {
-                                    good_H = true;
+                                    acceptable_H = true;
                                     std::cout << "  ----> winner";
                                 }
                                 else
@@ -193,17 +220,26 @@ void AssemblyPart::FindMatches(const cv::Mat& descriptor_scene, const std::vecto
 
                             try
                             {
-                                if(!H.empty() && good_H)
+                                if(!H.empty() && acceptable_H)
                                 {
                                     std::vector<cv::Point2f> corners;
                                     //cv::perspectiveTransform(obj_corners, scene_corners[i], H);
                                     cv::perspectiveTransform(obj_corners, corners, H);
+                                    unsigned rect_cnt = 0;
+                                    std::cout << "Is not RectangleShape: " << "AssemblyPart[" << this->iID << "] " << rect_cnt << std::endl;
 
                                     for(size_t j = 0; j < corners.size(); j++)
                                     {
                                         if((corners[j].x < 0) || (corners[j].y < 0))
                                         {
                                             std::fill(scene_corners[i].begin(), scene_corners[i].end(), cv::Point(0, 0));
+                                            break;
+                                        }
+
+                                        if(!isRectangularShape(corners))
+                                        {
+                                            std::fill(scene_corners[i].begin(), scene_corners[i].end(), cv::Point(0, 0));
+                                            rect_cnt++;
                                             break;
                                         }
                                         scene_corners[i][j] = cv::Point((int)corners[j].x, (int)corners[j].y);
@@ -251,7 +287,7 @@ void AssemblyPart::FindMatches(const cv::Mat& descriptor_scene, const std::vecto
 
                     end_time = std::chrono::high_resolution_clock::now();
                     dur = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time).count();
-                    std::cout << "Matching -> time elapsed:	" << dur << " ms" << std::endl;
+                    std::cout << "Assembly Part " << iID  << "__Matching -> time elapsed:	" << dur << " ms" << std::endl;
                     std::cout << "-------------------------------------------------------------" << std::endl;
 
 
@@ -261,10 +297,10 @@ void AssemblyPart::FindMatches(const cv::Mat& descriptor_scene, const std::vecto
 
                 }
             }
-            else
+            else    //if copied KPs and Desc are empty - notify again
             {
                 m_mutex.lock();
-                m_new_kp_rq.store(true, std::memory_order_release);	//notify AugmentedAssembly object about a new request
+                m_new_kp_rq.store(true, std::memory_order_release);
                 m_mutex.unlock();
             }
         }

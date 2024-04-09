@@ -2,7 +2,19 @@
 #include "AugmentedAssembly.h"
 
 
-AugmentedAssembly::AugmentedAssembly(): m_zed(m_grabbed_frame_left_SL, m_grabbed_frame_right_SL, m_mutex), m_detector(m_method, m_detector_frame_MAT_new, m_mutex_detector, m_detector_new_frame_rq), m_detector_new_frame_rq(true), m_mutex_parts(m_parts_cnt)
+void AugmentedAssembly::GetNumberOfParts(std::filesystem::path path_to_parts)
+{
+	for(auto& p : std::filesystem::directory_iterator(path_to_parts))
+	{
+		std::cout << p.path() << std::endl;
+		m_parts_cnt++;
+	}
+
+	m_parts_cnt = 1;
+}
+
+
+AugmentedAssembly::AugmentedAssembly(): m_zed(m_grabbed_frame_left_SL, m_grabbed_frame_right_SL, m_mutex), m_detector(m_method, m_detector_frame_MAT_new, m_mutex_detector, m_detector_new_frame_rq), m_detector_new_frame_rq(true)
 {
 	auto camera_ret_state = m_zed.GetCameraState();
 	if(camera_ret_state  != sl::ERROR_CODE::SUCCESS)
@@ -10,13 +22,16 @@ AugmentedAssembly::AugmentedAssembly(): m_zed(m_grabbed_frame_left_SL, m_grabbed
 		std::cout << "Error occured " << camera_ret_state << std::endl;
 	}
 
+	GetNumberOfParts(std::filesystem::path(std::filesystem::current_path() / ("resources")).make_preferred());
+	m_parts_new_rq = std::make_unique < std::vector<std::atomic<bool>>>(m_parts_cnt);
+	m_mutex_parts = std::make_unique < std::vector<std::mutex>>(m_parts_cnt);
 
 	for(size_t i = 0; i < m_parts_cnt; i++)
 	{
-		m_parts_new_rq[i] = true;
+		m_parts_new_rq.get()->at(i) = true;
 		m_assembly_parts.push_back(AssemblyPart(m_method, std::filesystem::path(std::filesystem::current_path() / ("resources/object" + std::to_string(i))).make_preferred(),
 																				std::filesystem::path(std::filesystem::current_path() / ("resources/object" + std::to_string(i))).make_preferred(),
-																				m_mutex_parts[i], m_parts_new_rq[i]));
+																				m_mutex_parts.get()->at(i), m_parts_new_rq.get()->at(i)));
 	}
 	
 
@@ -104,14 +119,16 @@ void AugmentedAssembly::Start()
 			{
 				if((m_grabbed_frame_left_SL.getHeight() != 0) && (m_grabbed_frame_left_SL.getWidth() != 0))
 				{
-					std::shared_lock<std::shared_mutex> lock(m_mutex);
-					slMat2cvMat(m_grabbed_frame_left_SL).copyTo(m_grabbed_frame_left_MAT);
-					m_grabbed_frame_left_MAT.copyTo(DEMONSTRATION_FRAME_LEFT);
-					slMat2cvMat(m_grabbed_frame_right_SL).copyTo(m_grabbed_frame_right_MAT);
-					m_grabbed_frame_right_MAT.copyTo(DEMONSTRATION_FRAME_RIGHT);
-					lock.unlock();
+					{
+						std::shared_lock<std::shared_mutex> lock(m_mutex);
+						slMat2cvMat(m_grabbed_frame_left_SL).copyTo(m_grabbed_frame_left_MAT);
+						m_grabbed_frame_left_MAT.copyTo(DEMONSTRATION_FRAME_LEFT);
+						slMat2cvMat(m_grabbed_frame_right_SL).copyTo(m_grabbed_frame_right_MAT);
+						m_grabbed_frame_right_MAT.copyTo(DEMONSTRATION_FRAME_RIGHT);
+					}
 					if(!m_grabbed_frame_left_MAT.empty())
 					{
+
 						for(size_t i = 0; i < scene_corners.size(); i++)
 						{
 						
@@ -165,9 +182,11 @@ void AugmentedAssembly::Start()
 					std::cout << "	Keypoints size: " << m_keypoints_scene.size() << std::endl;
 					std::cout << "-----------------------------" << std::endl;
 					*/
-					std::shared_lock<std::shared_mutex> lock(m_mutex);
-					m_grabbed_frame_left_MAT.copyTo(m_detector_frame_MAT_new);
-					cv::cvtColor(m_detector_frame_MAT_new, m_detector_frame_MAT_new, cv::COLOR_BGR2GRAY);
+					{
+						std::shared_lock<std::shared_mutex> lock(m_mutex);
+						m_grabbed_frame_left_MAT.copyTo(m_detector_frame_MAT_new);
+						cv::cvtColor(m_detector_frame_MAT_new, m_detector_frame_MAT_new, cv::COLOR_BGR2GRAY);
+					}
 					//lock.unlock();
 
 					/************************************* Keypoints = demonstration ****************************************************/
@@ -209,13 +228,13 @@ void AugmentedAssembly::Start()
 
 						for(size_t i = 0; i < m_parts_cnt; i++)
 						{
-							m_mutex_parts[i].lock();
-							matcher_requested = m_parts_new_rq[i].load(std::memory_order_acquire);
-							m_mutex_parts[i].unlock();
+							m_mutex_parts.get()->at(i).lock();
+							matcher_requested = m_parts_new_rq.get()->at(i).load(std::memory_order_acquire);
+							m_mutex_parts.get()->at(i).unlock();
 
 							if(matcher_requested)
 							{
-								m_parts_new_rq[i].store(false, std::memory_order_release);		//AssemblyPart(s) can try to match from a new set of keypoints/desc
+								m_parts_new_rq.get()->at(i).store(false, std::memory_order_release);		//AssemblyPart(s) can try to match from a new set of keypoints/desc
 								m_assembly_parts[i].SetNewSceneParam(m_descriptor_scene, m_keypoints_scene);
 							}
 						}
@@ -265,7 +284,6 @@ void AugmentedAssembly::Start()
 		}
 	}
 }
-
 
 
 AugmentedAssembly::~AugmentedAssembly()

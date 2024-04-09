@@ -46,7 +46,7 @@ inline cv::Mat slMat2cvMat(sl::Mat& input) {
 }
 
 
-constexpr unsigned THRESHOLD_SEG = 128;
+constexpr unsigned THRESHOLD_SEG = 180;
 constexpr double THRESHOLD_CONTOUR_AREA = 2000;
 
 /*********************************  Unified Camera initializer    *******************************************************/
@@ -109,6 +109,12 @@ int main()
         std::sort(keypoints.begin(), keypoints.end(), [](const cv::KeyPoint& a, const cv::KeyPoint& b) { return (a.response > b.response); });
         std::vector<cv::KeyPoint> keypoints_strong = std::vector<cv::KeyPoint>(keypoints.begin(), keypoints.begin() + (keypoints.size() / 2));
         */
+
+        cv::Mat canny_image;
+        cv::GaussianBlur(contour_frame, canny_image, cv::Size(5, 5), 0);
+        cv::Canny(canny_image, canny_image, 50, 150);
+        cv::imshow("Canny Image", canny_image);
+
         cv::threshold(contour_frame, contour_frame, THRESHOLD_SEG, 255, cv::THRESH_BINARY);
         cv::imshow("Threshold Image", contour_frame);
 
@@ -117,6 +123,9 @@ int main()
         std::vector<std::vector<cv::Point> > contours;
         std::vector<cv::Vec4i> hierarchy;
         cv::findContours(contour_frame, contours, hierarchy,cv::RETR_LIST, cv::CHAIN_APPROX_NONE);
+        
+        //cv::findContours(canny_image, contours, hierarchy, cv::RETR_LIST, cv::CHAIN_APPROX_SIMPLE);
+        
         end_time = std::chrono::high_resolution_clock::now();
         dur = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time).count();
         std::cout << "Contours: " << dur << "ms" << std::endl;

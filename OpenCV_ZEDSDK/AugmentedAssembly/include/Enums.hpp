@@ -9,7 +9,7 @@ enum class Method
 
 enum class AssemblyStates
 {
-    AssemblySetup,
+    AssemblyStart,
     AssemblyStep,
     AssemblyFinal
 };

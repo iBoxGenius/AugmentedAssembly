@@ -63,9 +63,9 @@ void InitCamera(sl::Camera& zed)
 
 int main()
 {
-    std::string object_name = "object_4";                      ///     < ---------------------------------object name
-    sl::Camera zed;
-    InitCamera(zed);
+    std::string object_name = "object_0";                      ///     < ---------------------------------object name
+    //sl::Camera zed;
+    //InitCamera(zed);
 
     sl::Mat grabbed_frame;
     cv::Mat cv_frame;

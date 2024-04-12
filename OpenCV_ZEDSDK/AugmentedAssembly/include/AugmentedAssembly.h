@@ -33,6 +33,36 @@ private:
     const Method m_method = Method::BRISK;
     size_t m_parts_cnt = 0;
 
+    AssemblyStates m_assembly_state = AssemblyStates::AssemblyStart;
+    unsigned m_steps_cnt = 0;
+    std::vector<unsigned> m_step_indices;
+    std::mutex m_mutex_instructions;
+    bool changed_state = true;
+    void SetAssemblyIndices();
+    HWND m_window_handle;
+    UINT_PTR m_timer_id;
+
+    static VOID CALLBACK TimerProcStatic(HWND hwnd, UINT uMsg, UINT_PTR idEvent, DWORD dwTime)
+    {
+        // Retrieve the pointer to the TimerExample instance
+        //AugmentedAssembly* pThis = reinterpret_cast<AugmentedAssembly*>(idEvent);
+        // Call the non-static member function
+        //pThis->TimerCallback();
+        AugmentedAssembly* pA = GetTimerPtr();
+        // Ensure pA is not null before calling member function
+        if(pA)
+            pA->TimerCallback();
+    }
+    void TimerCallback();
+
+    static void SetTimerPtr(AugmentedAssembly* ptr) {
+        timerPtr = ptr;
+    }
+
+    static AugmentedAssembly* GetTimerPtr() {
+        return timerPtr;
+    }
+    static AugmentedAssembly* timerPtr;
 
     // Private member variables
     sl::Mat m_grabbed_frame_left_SL;
@@ -56,10 +86,10 @@ private:
     void GetNumberOfParts(std::filesystem::path path_to_parts);
     std::vector<AssemblyPart> m_assembly_parts;
     std::vector<std::thread> m_threads_parts;
-    //std::vector<std::mutex> m_mutex_parts;                  //mutexes used for notifying the main thread that new object locations have been updated
-    std::unique_ptr < std::vector<std::mutex>> m_mutex_parts;                  //mutexes used for notifying the main thread that new object locations have been updated
-    //std::array<std::atomic<bool>, parts_cnt> m_parts_new_rq;        //std::array, fixed size at compile time, atomics can be created
-    std::unique_ptr<std::vector<std::atomic<bool>>> m_parts_new_rq;
+    std::unique_ptr < std::vector<std::mutex>> m_mutex_parts;                  
+    std::unique_ptr<std::vector<uint8_t>> m_parts_new_rq;                       //for notifying the object threads to start Matching
+    std::unique_ptr < std::vector<std::condition_variable_any>> m_cv_parts;
+
 
     std::thread thread_camera;
     std::thread thread_detector;

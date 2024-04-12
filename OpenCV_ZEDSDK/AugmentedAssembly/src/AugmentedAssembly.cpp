@@ -1,5 +1,8 @@
 
 #include "AugmentedAssembly.h"
+#include <windows.h>
+
+AugmentedAssembly* AugmentedAssembly::timerPtr = nullptr;
 
 
 void AugmentedAssembly::GetNumberOfParts(std::filesystem::path path_to_parts)
@@ -10,7 +13,7 @@ void AugmentedAssembly::GetNumberOfParts(std::filesystem::path path_to_parts)
 		m_parts_cnt++;
 	}
 
-	m_parts_cnt = 1;
+	//m_parts_cnt = 5;
 }
 
 
@@ -23,18 +26,20 @@ AugmentedAssembly::AugmentedAssembly(): m_zed(m_grabbed_frame_left_SL, m_grabbed
 	}
 
 	GetNumberOfParts(std::filesystem::path(std::filesystem::current_path() / ("resources")).make_preferred());
-	m_parts_new_rq = std::make_unique < std::vector<std::atomic<bool>>>(m_parts_cnt);
+	m_parts_new_rq = std::make_unique < std::vector<uint8_t>>(m_parts_cnt);
 	m_mutex_parts = std::make_unique < std::vector<std::mutex>>(m_parts_cnt);
+	m_cv_parts = std::make_unique < std::vector<std::condition_variable_any>>(m_parts_cnt);
 
 	for(size_t i = 0; i < m_parts_cnt; i++)
 	{
 		m_parts_new_rq.get()->at(i) = true;
 		m_assembly_parts.push_back(AssemblyPart(m_method, std::filesystem::path(std::filesystem::current_path() / ("resources/object" + std::to_string(i))).make_preferred(),
 																				std::filesystem::path(std::filesystem::current_path() / ("resources/object" + std::to_string(i))).make_preferred(),
-																				m_mutex_parts.get()->at(i), m_parts_new_rq.get()->at(i)));
+																				m_mutex_parts.get()->at(i), m_parts_new_rq.get()->at(i), m_cv_parts.get()->at(i)));
 	}
-	
 
+
+	
 	//to evade reallocations
 	m_keypoints_scene.reserve(KP_MAX);
 	if(m_method == Method::BRISK)
@@ -55,7 +60,30 @@ AugmentedAssembly::AugmentedAssembly(): m_zed(m_grabbed_frame_left_SL, m_grabbed
 		//m_descriptor_scene = Descriptors;
 	}
 	
+	m_step_indices.reserve(m_parts_cnt);
+
+	if(!(m_parts_cnt % 2) || (m_parts_cnt == 0))
+	{
+		std::cout << "Insuffiecient nubmer of objects provided" << std::endl;
+		m_steps_cnt = 0;
+	}
+	else
+	{
+		m_steps_cnt = (m_parts_cnt / 2) - 1;
+
+		//for - get idx of steps
+		//m_step_indices.push_back(3);
+	}
 	
+	SetTimerPtr(this);
+	/*m_window_handle = CreateWindowW(L"STATIC", L"Timer_AA", WS_OVERLAPPEDWINDOW,
+									CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT,
+									NULL, NULL, NULL, NULL);
+									*/
+
+
+
+	SetAssemblyIndices();
 }
 
 /*
@@ -78,19 +106,32 @@ void AugmentedAssembly::Start()
 		thread_camera = std::thread(&CameraHandler::Start, std::ref(m_zed));
 		thread_detector = std::thread(&Detector::DetectCompute, std::ref(m_detector), cv::Mat(), std::ref(m_keypoints_scene), std::ref(m_descriptor_scene));
 
-		std::vector<std::vector<cv::Point>> scene_corners(6);
+		std::vector<std::vector<std::vector<cv::Point>>> scene_corners(m_parts_cnt);
+
+		/*
+		* i => per object
+		* j => per side
+		* k => per corner
+		*/
 		for(size_t i = 0; i < scene_corners.size(); i++)
 		{
-			scene_corners[i].push_back(cv::Point(0, 0));
-			scene_corners[i].push_back(cv::Point(0, 0));
-			scene_corners[i].push_back(cv::Point(0, 0));
-			scene_corners[i].push_back(cv::Point(0, 0));
+			scene_corners[i] = std::vector<std::vector<cv::Point>>(6);
+			for(size_t j = 0; j < scene_corners[i].size(); j++)
+			{
+				/*
+				scene_corners[i][j].push_back(cv::Point(0, 0));
+				scene_corners[i][j].push_back(cv::Point(0, 0));
+				scene_corners[i][j].push_back(cv::Point(0, 0));
+				scene_corners[i][j].push_back(cv::Point(0, 0));
+				*/
+			}
+
 		}
 
 
 		for(size_t i = 0; i < m_parts_cnt; i++)
 		{
-			m_threads_parts.push_back(std::move(std::thread(&AssemblyPart::FindMatches, std::ref(m_assembly_parts[i]), std::ref(m_descriptor_scene), std::ref(m_keypoints_scene), std::ref(scene_corners))));
+			m_threads_parts.push_back(std::move(std::thread(&AssemblyPart::FindMatches, std::ref(m_assembly_parts[i]), std::ref(m_descriptor_scene), std::ref(m_keypoints_scene), std::ref(scene_corners[i]))));
 		}
 
 		bool time_s = true;
@@ -110,13 +151,69 @@ void AugmentedAssembly::Start()
 
 		//std::cout << "Number of threads:  " << std::thread::hardware_concurrency() << std::endl;
 
+		bool found = false;
+		std::vector<unsigned> found_cnt(m_parts_cnt, 0);
 		cv::Mat DEMONSTRATION_FRAME_LEFT;
 		cv::Mat DEMONSTRATION_FRAME_RIGHT;
+
+
 		while(true)
 		{
 			//start_time_loop = std::chrono::high_resolution_clock::now();
 			try
 			{
+				switch(m_assembly_state)
+				{
+				case AssemblyStates::AssemblyStart:
+					if(changed_state)
+					{
+						SetAssemblyIndices();
+						changed_state = false;
+					}
+
+					break;
+				case AssemblyStates::AssemblyStep:
+					if(changed_state)
+					{
+						SetAssemblyIndices();
+						changed_state = false;
+					}
+
+					break;
+				case AssemblyStates::AssemblyFinal:
+					if(changed_state)
+					{
+						SetAssemblyIndices();
+						changed_state = false;
+					}
+
+					break;
+				default:
+					break;
+				}
+
+
+
+				/* Hladam assembly parts na zaciatku. Ak maju viac ako 200 najdeni, zacnem timer pre dalsi krok*/
+				if(!found)
+				{
+					unsigned detected_part_cnt = 0;
+					for(auto& part_idx : m_step_indices)
+					{
+						if(found_cnt[part_idx] >= 200)
+						{
+							detected_part_cnt++;
+						}
+						if(detected_part_cnt >= m_step_indices.size())
+						{
+							found = true;
+							m_timer_id = SetTimer(NULL, 1, 5000, (TIMERPROC)TimerProcStatic);
+						}
+					}
+				}
+				
+
+
 				if((m_grabbed_frame_left_SL.getHeight() != 0) && (m_grabbed_frame_left_SL.getWidth() != 0))
 				{
 					{
@@ -128,30 +225,60 @@ void AugmentedAssembly::Start()
 					}
 					if(!m_grabbed_frame_left_MAT.empty())
 					{
+						for(auto& part_idx : m_step_indices)
+						{
+							for(size_t j = 0; j < scene_corners[part_idx].size(); j++)
+							{
+								if(!scene_corners[part_idx][j].empty())
+								{
+									found_cnt[part_idx]++;
 
+									cv::line(DEMONSTRATION_FRAME_LEFT, scene_corners[part_idx][j][0], scene_corners[part_idx][j][1], cv::Scalar(0, 255, 0), 2);
+									cv::line(DEMONSTRATION_FRAME_LEFT, scene_corners[part_idx][j][1], scene_corners[part_idx][j][2], cv::Scalar(0, 255, 0), 2);
+									cv::line(DEMONSTRATION_FRAME_LEFT, scene_corners[part_idx][j][2], scene_corners[part_idx][j][3], cv::Scalar(0, 255, 0), 2);
+									cv::line(DEMONSTRATION_FRAME_LEFT, scene_corners[part_idx][j][3], scene_corners[part_idx][j][0], cv::Scalar(0, 255, 0), 2);
+
+									cv::imshow("DEMONSTRATION_LEFT", DEMONSTRATION_FRAME_LEFT);
+
+
+									cv::line(DEMONSTRATION_FRAME_RIGHT, scene_corners[part_idx][j][0], scene_corners[part_idx][j][1], cv::Scalar(0, 255, 0), 2);
+									cv::line(DEMONSTRATION_FRAME_RIGHT, scene_corners[part_idx][j][1], scene_corners[part_idx][j][2], cv::Scalar(0, 255, 0), 2);
+									cv::line(DEMONSTRATION_FRAME_RIGHT, scene_corners[part_idx][j][2], scene_corners[part_idx][j][3], cv::Scalar(0, 255, 0), 2);
+									cv::line(DEMONSTRATION_FRAME_RIGHT, scene_corners[part_idx][j][3], scene_corners[part_idx][j][0], cv::Scalar(0, 255, 0), 2);
+
+									cv::imshow("DEMONSTRATION_RIGHT", DEMONSTRATION_FRAME_RIGHT);
+								}
+							}
+						}
+						/*
 						for(size_t i = 0; i < scene_corners.size(); i++)
 						{
-						
-							if(!scene_corners[i].empty())
+							for(size_t j = 0; j < scene_corners[i].size(); j++)
 							{
-								cv::line(DEMONSTRATION_FRAME_LEFT, scene_corners[i][0], scene_corners[i][1], cv::Scalar(0, 255, 0), 2);
-								cv::line(DEMONSTRATION_FRAME_LEFT, scene_corners[i][1], scene_corners[i][2], cv::Scalar(0, 255, 0), 2);
-								cv::line(DEMONSTRATION_FRAME_LEFT, scene_corners[i][2], scene_corners[i][3], cv::Scalar(0, 255, 0), 2);
-								cv::line(DEMONSTRATION_FRAME_LEFT, scene_corners[i][3], scene_corners[i][0], cv::Scalar(0, 255, 0), 2);
+								if(!scene_corners[i][j].empty())
+								{
+									found_cnt[i]++;
 
-								cv::imshow("DEMONSTRATION_LEFT", DEMONSTRATION_FRAME_LEFT);
+									cv::line(DEMONSTRATION_FRAME_LEFT, scene_corners[i][j][0], scene_corners[i][j][1], cv::Scalar(0, 255, 0), 2);
+									cv::line(DEMONSTRATION_FRAME_LEFT, scene_corners[i][j][1], scene_corners[i][j][2], cv::Scalar(0, 255, 0), 2);
+									cv::line(DEMONSTRATION_FRAME_LEFT, scene_corners[i][j][2], scene_corners[i][j][3], cv::Scalar(0, 255, 0), 2);
+									cv::line(DEMONSTRATION_FRAME_LEFT, scene_corners[i][j][3], scene_corners[i][j][0], cv::Scalar(0, 255, 0), 2);
 
-							
-								cv::line(DEMONSTRATION_FRAME_RIGHT, scene_corners[i][0], scene_corners[i][1], cv::Scalar(0, 255, 0), 2);
-								cv::line(DEMONSTRATION_FRAME_RIGHT, scene_corners[i][1], scene_corners[i][2], cv::Scalar(0, 255, 0), 2);
-								cv::line(DEMONSTRATION_FRAME_RIGHT, scene_corners[i][2], scene_corners[i][3], cv::Scalar(0, 255, 0), 2);
-								cv::line(DEMONSTRATION_FRAME_RIGHT, scene_corners[i][3], scene_corners[i][0], cv::Scalar(0, 255, 0), 2);
+									cv::imshow("DEMONSTRATION_LEFT", DEMONSTRATION_FRAME_LEFT);
 
-								cv::imshow("DEMONSTRATION_RIGHT", DEMONSTRATION_FRAME_RIGHT);
-							
+
+									cv::line(DEMONSTRATION_FRAME_RIGHT, scene_corners[i][j][0], scene_corners[i][j][1], cv::Scalar(0, 255, 0), 2);
+									cv::line(DEMONSTRATION_FRAME_RIGHT, scene_corners[i][j][1], scene_corners[i][j][2], cv::Scalar(0, 255, 0), 2);
+									cv::line(DEMONSTRATION_FRAME_RIGHT, scene_corners[i][j][2], scene_corners[i][j][3], cv::Scalar(0, 255, 0), 2);
+									cv::line(DEMONSTRATION_FRAME_RIGHT, scene_corners[i][j][3], scene_corners[i][j][0], cv::Scalar(0, 255, 0), 2);
+
+									cv::imshow("DEMONSTRATION_RIGHT", DEMONSTRATION_FRAME_RIGHT);
+
+								}
 							}
 
 						}
+						*/
 					
 						cv::waitKey(10);
 						cv::imshow("Camera_left", m_grabbed_frame_left_MAT);
@@ -226,16 +353,33 @@ void AugmentedAssembly::Start()
 						*/
 						/*************************	Matcher request	 **********************************/
 
-						for(size_t i = 0; i < m_parts_cnt; i++)
+
+						//for(size_t i = 0; i < m_parts_cnt; i++)
 						{
-							m_mutex_parts.get()->at(i).lock();
-							matcher_requested = m_parts_new_rq.get()->at(i).load(std::memory_order_acquire);
-							m_mutex_parts.get()->at(i).unlock();
+							for(auto& part_idx : m_step_indices)
+							{
+
+								{
+									std::unique_lock<std::mutex> lk(m_mutex_parts.get()->at(part_idx));
+									matcher_requested = m_parts_new_rq.get()->at(part_idx);
+								}
+
+								if(matcher_requested)
+								{
+									m_assembly_parts[part_idx].SetNewSceneParam(m_descriptor_scene, m_keypoints_scene);
+									m_mutex_parts.get()->at(part_idx).lock();
+									m_parts_new_rq.get()->at(part_idx) = false;
+									m_mutex_parts.get()->at(part_idx).unlock();
+									m_cv_parts.get()->at(part_idx).notify_one();
+								}
+
+							}
+							
 
 							if(matcher_requested)
 							{
-								m_parts_new_rq.get()->at(i).store(false, std::memory_order_release);		//AssemblyPart(s) can try to match from a new set of keypoints/desc
-								m_assembly_parts[i].SetNewSceneParam(m_descriptor_scene, m_keypoints_scene);
+								//m_assembly_parts[i].SetNewSceneParam(m_descriptor_scene, m_keypoints_scene);
+								//m_parts_new_rq.get()->at(i).store(false, std::memory_order_release);		//AssemblyPart(s) can try to match from a new set of keypoints/desc
 							}
 						}
 
@@ -283,6 +427,56 @@ void AugmentedAssembly::Start()
 			}
 		}
 	}
+}
+
+void AugmentedAssembly::SetAssemblyIndices()
+{
+	static unsigned step_cnt = 0;
+	switch(m_assembly_state)
+	{
+		case AssemblyStates::AssemblyStart:
+			m_step_indices.clear();
+			m_step_indices.push_back(0);
+			m_step_indices.push_back(1);
+			m_step_indices.push_back(2);
+
+			break;
+		case AssemblyStates::AssemblyStep:
+			m_step_indices.clear();
+
+			if(step_cnt == 1)
+			{
+				m_step_indices.push_back(1);
+				m_step_indices.push_back(2);
+				m_step_indices.push_back(3);
+			}
+
+			if(step_cnt == 2)
+			{
+				m_step_indices.push_back(3);
+				m_step_indices.push_back(4);
+			}
+
+			break;
+		case AssemblyStates::AssemblyFinal:
+			m_step_indices.clear();
+			m_step_indices.push_back(4);
+
+			break;
+		default:
+			break;
+	}
+}
+
+
+void AugmentedAssembly::TimerCallback()
+{
+	this->m_assembly_state = AssemblyStates::AssemblyFinal;
+	this->changed_state = true;
+	auto ret = KillTimer(NULL, this->m_timer_id);
+	//this->m_timer_id = 0;
+	//DestroyWindow(m_window_handle);
+	//DWORD dw = GetLastError();
 }
 
 

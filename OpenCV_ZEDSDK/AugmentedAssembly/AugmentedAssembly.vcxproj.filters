@@ -33,6 +33,9 @@
     <ClInclude Include="include\Enums.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="AugmentedInstructions.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\AugmentedAssembly.cpp">
@@ -51,6 +54,9 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="include\Matcher.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="AugmentedInstructions.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

@@ -19,6 +19,7 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="AugmentedInstructions.h" />
     <ClInclude Include="include\AugmentedAssembly.h" />
     <ClInclude Include="include\CameraHandler.h" />
     <ClInclude Include="include\AssemblyPart.h" />
@@ -27,6 +28,7 @@
     <ClInclude Include="include\Matcher.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="AugmentedInstructions.cpp" />
     <ClCompile Include="include\Matcher.cpp" />
     <ClCompile Include="src\AugmentedAssembly.cpp" />
     <ClCompile Include="src\CameraHandler.cpp">

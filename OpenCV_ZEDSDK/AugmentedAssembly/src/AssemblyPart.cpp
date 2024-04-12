@@ -20,7 +20,7 @@ bool isRectangularShape(std::vector<cv::Point2f>& pts)
     }
 
     // Check if all angles are approximately 90 degrees (cosine close to 0)
-    const double threshold = 0.2; // Adjust threshold as needed
+    const double threshold = 0.25; // Adjust threshold as needed
     for(double cosine : cosines) {
         if(abs(cosine) > threshold) {
             return false;
@@ -31,7 +31,7 @@ bool isRectangularShape(std::vector<cv::Point2f>& pts)
 }
 
 
-
+/*
 AssemblyPart::AssemblyPart(Method method, std::filesystem::path path_to_images, std::filesystem::path path_to_json, std::mutex& mutex, std::atomic<bool>& sync_var): m_method(method), iID(iTotal), m_mutex(mutex), m_new_kp_rq(sync_var)
 {
     iTotal++;
@@ -42,6 +42,24 @@ AssemblyPart::AssemblyPart(Method method, std::filesystem::path path_to_images, 
         m_matchers.push_back(Matcher(m_method, (float)0.8));
     }
     
+    for(size_t i = 0; i < m_descriptors.size(); i++)
+    {
+        m_good_matches_filtered.push_back(std::vector<cv::DMatch>());
+    }
+
+}
+*/
+
+AssemblyPart::AssemblyPart(Method method, std::filesystem::path path_to_images, std::filesystem::path path_to_json, std::mutex& mutex, uint8_t& sync_var, std::condition_variable_any& cv): m_method(method), iID(iTotal), m_mutex(mutex), m_new_kp_rq(sync_var), m_cv(cv)
+{
+    iTotal++;
+    iLiving++;
+    LoadKeypointsFromImgs(path_to_images, path_to_json);
+    for(size_t i = 0; i < m_descriptors.size(); i++)
+    {
+        m_matchers.push_back(Matcher(m_method, (float)0.8));
+    }
+
     for(size_t i = 0; i < m_descriptors.size(); i++)
     {
         m_good_matches_filtered.push_back(std::vector<cv::DMatch>());
@@ -109,16 +127,27 @@ void AssemblyPart::FindMatches(const cv::Mat& descriptor_scene, const std::vecto
     auto start_time = std::chrono::high_resolution_clock::now();
     auto dur = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time).count();
 
+    {
+        std::unique_lock<std::mutex> lk(m_mutex);
+        m_new_kp_rq = true;
+    }
+
+    unsigned rect_cnt = 0;
+
     while(true)
     {
         try
         {
             if(!m_descriptor_scene_local_cpy.empty() && !m_keypoints_scene_local_cpy.empty())
             {
-                m_mutex.lock();
-                request_not_fullfiled = m_new_kp_rq.load(std::memory_order_acquire);
-                m_mutex.unlock();
-                if(!request_not_fullfiled)
+
+                {
+                    std::unique_lock<std::mutex> lk(m_mutex);
+                    m_cv.wait(lk, [this] { return !m_new_kp_rq; });
+                }
+
+                //std::cout << "AssemblyPart[" << this->iID << "] " << std::endl;
+                //if(!request_not_fullfiled)
                 {
                     start_time = std::chrono::high_resolution_clock::now();
                     for(size_t i = 0; i < m_matchers.size(); i++)
@@ -127,7 +156,7 @@ void AssemblyPart::FindMatches(const cv::Mat& descriptor_scene, const std::vecto
                         try
                         {
                             m_matchers[i].Match(m_descriptors[i], m_descriptor_scene_local_cpy, m_keypoints_scene_local_cpy, m_good_matches_filtered[i]);
-                            std::cout << "Matching " << i << std::endl;
+                            //std::cout << "Matching " << i << std::endl;
                         }
                         catch(cv::Exception& e)
                         {
@@ -173,7 +202,7 @@ void AssemblyPart::FindMatches(const cv::Mat& descriptor_scene, const std::vecto
                             */
                             //std::cout << "Assembly Part " << iID << std::endl;
 
-                            std::cout << "[" << i << "] = " << "Keypoints == " << m_keypoints[i].size() << "   Good Matches == " << m_good_matches_filtered[i].size();
+                            //std::cout << "[" << i << "] = " << "Keypoints == " << m_keypoints[i].size() << "   Good Matches == " << m_good_matches_filtered[i].size();
                             //cv::SVD homographySVD(H, cv::SVD::NO_UV);
                             double det = 0;
                             try
@@ -199,13 +228,16 @@ void AssemblyPart::FindMatches(const cv::Mat& descriptor_scene, const std::vecto
                                 if((det > 0.2) && (det < 1.7))
                                 {
                                     acceptable_H = true;
-                                    std::cout << "  ----> winner";
+                                    //std::cout << "  ----> winner";
                                 }
                                 else
                                 {
-                                    std::fill(scene_corners[i].begin(), scene_corners[i].end(), cv::Point(0, 0));
+                                    if(!scene_corners[i].empty())
+                                    {
+                                        std::fill(scene_corners[i].begin(), scene_corners[i].end(), cv::Point(0, 0));
+                                        break;
+                                    }
                                 }
-                                std::cout << std::endl;     //
 
                                 obj_corners[0] = cv::Point2f(0, 0);
                                 obj_corners[1] = cv::Point2f((float)m_images[i].cols, 0);
@@ -215,7 +247,7 @@ void AssemblyPart::FindMatches(const cv::Mat& descriptor_scene, const std::vecto
                             catch(cv::Exception& e)
                             {
                                 //const char* err_msg = e.what();
-                                std::cout << "Homography calculation exception: " << e.msg << std::endl;
+                                //std::cout << "Homography calculation exception: " << e.msg << std::endl;
                             }
 
                             try
@@ -225,22 +257,35 @@ void AssemblyPart::FindMatches(const cv::Mat& descriptor_scene, const std::vecto
                                     std::vector<cv::Point2f> corners;
                                     //cv::perspectiveTransform(obj_corners, scene_corners[i], H);
                                     cv::perspectiveTransform(obj_corners, corners, H);
-                                    unsigned rect_cnt = 0;
-                                    std::cout << "Is not RectangleShape: " << "AssemblyPart[" << this->iID << "] " << rect_cnt << std::endl;
+                                    //std::cout << "\nIs not RectangleShape: " << "AssemblyPart[" << this->iID << "] " << rect_cnt << std::endl;
+
+                                    if(scene_corners[i].empty())
+                                    {
+                                        for(size_t k = 0; k < 4; k++)
+                                        {
+                                            scene_corners[i].push_back(cv::Point(0, 0));
+                                        }
+                                    }
+                                    if(!isRectangularShape(corners))
+                                    {
+                                        if(!scene_corners[i].empty())
+                                        {
+                                            //std::fill(scene_corners[i].begin(), scene_corners[i].end(), cv::Point(0, 0));
+                                            rect_cnt++;
+                                            continue;
+                                        }
+                                    }
+
 
                                     for(size_t j = 0; j < corners.size(); j++)
                                     {
                                         if((corners[j].x < 0) || (corners[j].y < 0))
                                         {
-                                            std::fill(scene_corners[i].begin(), scene_corners[i].end(), cv::Point(0, 0));
-                                            break;
-                                        }
-
-                                        if(!isRectangularShape(corners))
-                                        {
-                                            std::fill(scene_corners[i].begin(), scene_corners[i].end(), cv::Point(0, 0));
-                                            rect_cnt++;
-                                            break;
+                                            if(!scene_corners[i].empty())
+                                            {
+                                                std::fill(scene_corners[i].begin(), scene_corners[i].end(), cv::Point(0, 0));
+                                                break;
+                                            }
                                         }
                                         scene_corners[i][j] = cv::Point((int)corners[j].x, (int)corners[j].y);
                                     }
@@ -281,28 +326,34 @@ void AssemblyPart::FindMatches(const cv::Mat& descriptor_scene, const std::vecto
                         } // if enough inliers
                         else
                         {
-                            std::cout << std::endl;     //
+                            if(!scene_corners[i].empty())
+                            {
+                                std::fill(scene_corners[i].begin(), scene_corners[i].end(), cv::Point(0, 0));
+                                break;
+                            }
                         }
                     }// for each matcher
 
                     end_time = std::chrono::high_resolution_clock::now();
                     dur = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time).count();
-                    std::cout << "Assembly Part " << iID  << "__Matching -> time elapsed:	" << dur << " ms" << std::endl;
-                    std::cout << "-------------------------------------------------------------" << std::endl;
+                    //std::cout << "Assembly Part " << iID  << "__Matching -> time elapsed:	" << dur << " ms" << std::endl;
+                    //std::cout << "-------------------------------------------------------------" << std::endl;
 
-
-                    m_mutex.lock();
-                    m_new_kp_rq.store(true, std::memory_order_release);	//notify AugmentedAssembly object about a new request
-                    m_mutex.unlock();
+                    {
+                        std::unique_lock<std::mutex> lk(m_mutex);
+                        m_new_kp_rq = true;
+                    }
 
                 }
             }
             else    //if copied KPs and Desc are empty - notify again
             {
-                m_mutex.lock();
-                m_new_kp_rq.store(true, std::memory_order_release);
-                m_mutex.unlock();
+                {
+                    std::unique_lock<std::mutex> lk(m_mutex);
+                    m_new_kp_rq = true;
+                }
             }
+            
         }
         catch(cv::Exception& e)
         {

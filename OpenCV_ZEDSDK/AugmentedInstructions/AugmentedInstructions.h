@@ -23,6 +23,9 @@ public:
     void StartBlinkTimer();
 
     void BlinkPlanes();
+
+    void BlinkPlanesWin();
+    bool m_blink_win = true;
 private:
 
     std::chrono::milliseconds m_delay;
@@ -30,8 +33,17 @@ private:
     std::atomic<bool> m_blink;
 
     std::vector<std::vector<cv::Point>>& m_corners;
+    /*
     cv::Mat& m_image;
     cv::Mat m_image_clean;
+    */
+    cv::Mat m_image_draw;
+    cv::Mat& m_image_clean;
+
+    std::atomic<bool> m_blink_rq;
+    bool m_blink_img_first = true;
+    unsigned m_blink_img_cnt = 0;
+    cv::Mat image_clean_blink;
 
     void BlinkPlanes(bool colour);
 };

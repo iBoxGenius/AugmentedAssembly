@@ -31,10 +31,13 @@ int main()
     auto thread_instructions = std::thread(&AugmentedInstructions::StartBlinkTimer, std::ref(instructions));
     while(true)
     {
-        instructions.BlinkPlanes();
-        std::this_thread::sleep_for(std::chrono::seconds(10));
-        image_new.copyTo(image);
+        //instructions.BlinkPlanes();
+        std::this_thread::sleep_for(std::chrono::milliseconds(30));
+        imshow("Frame", image);
         //cv::waitKey(40);
+
+        image_new.copyTo(image);
+
     }
 
 

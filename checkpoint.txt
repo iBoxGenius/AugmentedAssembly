@@ -2,16 +2,25 @@ DescriptorsDataset
 	vytvoriť dataset z grayscale obrázkov	= postup = snapshot a následne vyrezať z obrázku daný objekt, čo sa použije pri určovaní pózy (findHomography)
 	skúsiť sa pohrať s parametrami pre BRISK v rámci datasetu -> už rovno s modelom. Aký bude počet významných bodov
 	
-	1. Obrázok z kamery, celý
-	2. Vystrihnúť objekt
-	3. Vytvoriť obrázok 1280x720, ktorý obsahuje vystrihnutý objekt (je tam teda iba ten objekt a zvyšok je čierňava)
-	4. Detekcia významných bodov
-	5. Import do Inkscape
-	6. Dať rozmery strany a image size na veľkosť vystrihnutého objektu (na obrázku bude teda iba ten objekt). VŠETKO V PIXELOCH
-	7. V kóde len použiť rohy obrazu, normálne ako v tutoriále.
+	x. Dá sa to asi zautomatizovať, kde sa nájdu kontúry, potom sa urobí BB a z neho sa budú detekovať významné body. A rozmery BB rovno dať do súboru ako súradnice ktoré sa načítajú a v kóde sa obrázok pri improte rovno vystrihne
+	
+	1. Odfotiť objekt cez DatasetAcquisition
+	2. Otvoriť Inkscape a Paint
+	3. Vyrezať objekt - dať do na súradnicu (0x0) Inkscape.
+	4. Označiť "Page" (veľkosť 1280x720, nastaviť cez "Document properties") export do "Keypoints_from_smaller" project. Názov obrázku ako "object_x_y.png"
+	5. Označiť iba obrázok objektu "Selection", export do "AugmentedAssembly/Resources/object_x"
+	6. Spustiť Keypoints_from_smaller
+	7. Prekopírovať 'desctiptor.json'a 'keypoints.json' do "AugmentedAssembly/Resources/object_x"
 	
 	x. Dá sa to asi zautomatizovať, kde sa nájdu kontúry, potom sa urobí BB a z neho sa budú detekovať významné body. A rozmery BB rovno dať do súboru ako súradnice ktoré sa načítajú a v kóde sa obrázok pri improte rovno vystrihne
+		rýchlo možno skúsiť CANNY a ohraničiť hrany (nie kontúry), či to dobre urobí.
+	
+	
+	Malo by sa to takto robiť, že sa detekujú body iba z vyrezaného obrázku. Tým pádom sa nedetekujú hranice (shape) objektu ako významné body,
+		ale naopak sa tým eliminuje vplyv pozadia na významné body hranice. (počítajú sa z okolia a teda pozadie ovplyvní 'response' významného bodu)
 
+	
+	
 Matcher		
 	-----------------------------------------------------------------
 	vyskúšať knn_matches[x][x].distance na filtraciu -> pre good_matches
@@ -22,10 +31,6 @@ Matcher
 			if (match.distance < minDist) {
 				goodMatches.push_back(match);
 			}
-		}
-	----------------------------------------------------------------
-	skúsiť väčší objekt --> treba väčšie objekty s lepšími features
-	--> contours bounding box, ak sa tam nachádza dostatočný počet features?	---- toto by mala vyriešiť homografia, len je treba mať objekty s hustejšou textúrou
 	
 AugmentedAssembly
 	Vytvoriť implementácie pre BRISK, ORB, SIFT -> použiť nejaké šikovné prepínače
@@ -33,8 +38,9 @@ AugmentedAssembly
 
 AugmentedInstructions
 	Blikanie [check]
-	Čakanie
-	Labelling komponentov
+	Čakanie [check]
+	Labelling komponentov [check]
+	Animácia [check]
 	Text - kde?
 	Nejaká forma poukázania na otočenie komponentu?
 

@@ -66,6 +66,7 @@ void Detector::DetectCompute(cv::Mat mask, CV_OUT std::vector<cv::KeyPoint>& key
 				{
 					//std::this_thread::sleep_for(std::chrono::milliseconds(100));
 					start_time_loop = std::chrono::high_resolution_clock::now();
+					cv::cvtColor(m_camera_frame_MAT_ref, m_camera_frame_MAT_ref, cv::COLOR_BGR2GRAY);
 
 					if(mask.empty())
 					{

@@ -4,6 +4,7 @@
 #include "Detector.h"
 #include "Enums.hpp"
 #include "AssemblyPart.h"
+#include "AugmentedInstructions.h"
 #include <sl/Camera.hpp>
 
 #include <opencv2/core.hpp>
@@ -31,7 +32,7 @@ public:
 
 private:
     const Method m_method = Method::BRISK;
-    size_t m_parts_cnt = 0;
+    unsigned m_parts_cnt = 0;
 
     AssemblyStates m_assembly_state = AssemblyStates::AssemblyStart;
     unsigned m_steps_cnt = 0;
@@ -74,6 +75,7 @@ private:
 
     CameraHandler m_zed;
     Detector m_detector;
+    AugmentedInstructions m_instructions;
     /*
     * Each assembly part will have its own matcher
     * std::vector<AssemblyPart> assembly_parts;     -> each has an instance of Matcher class
@@ -82,6 +84,7 @@ private:
     *       AugmentedAssembly fires up the threads (by batches of x (== 4 ?))       //same handling logic as the Detector class, in terms of mutexes and atomic<bool>, cv::Mat reference
     */
     std::vector<cv::DMatch> best_good_matches_filtered;
+    std::vector<std::vector<std::vector<cv::Point>>> m_scene_corners;
 
     void GetNumberOfParts(std::filesystem::path path_to_parts);
     std::vector<AssemblyPart> m_assembly_parts;

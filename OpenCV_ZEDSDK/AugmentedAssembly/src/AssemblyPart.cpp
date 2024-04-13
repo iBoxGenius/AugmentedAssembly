@@ -5,7 +5,7 @@ size_t AssemblyPart::iLiving = 0;
 size_t AssemblyPart::iTotal = 0;
 
 
-bool isRectangularShape(std::vector<cv::Point2f>& pts)
+bool AssemblyPart::isRectangularShape(std::vector<cv::Point2f>& pts)
 {
     // Calculate the cosine of all angles formed by consecutive points
     std::vector<double> cosines;
@@ -20,7 +20,8 @@ bool isRectangularShape(std::vector<cv::Point2f>& pts)
     }
 
     // Check if all angles are approximately 90 degrees (cosine close to 0)
-    const double threshold = 0.25; // Adjust threshold as needed
+    //const double threshold = 0.25; // Adjust threshold as needed
+    const double threshold = 0.4; // Adjust threshold as needed
     for(double cosine : cosines) {
         if(abs(cosine) > threshold) {
             return false;
@@ -200,9 +201,12 @@ void AssemblyPart::FindMatches(const cv::Mat& descriptor_scene, const std::vecto
                             dur = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time).count();
                             std::cout << "Matching -> time elapsed:	" << dur << " ms" << std::endl;
                             */
-                            //std::cout << "Assembly Part " << iID << std::endl;
 
-                            //std::cout << "[" << i << "] = " << "Keypoints == " << m_keypoints[i].size() << "   Good Matches == " << m_good_matches_filtered[i].size();
+
+                            //std::cout << "Assembly Part " << iID << std::endl;
+                            //std::cout << "[" << i << "] = " << "Keypoints == " << m_keypoints[i].size() << "   Good Matches == " << m_good_matches_filtered[i].size() << std::endl;
+
+
                             //cv::SVD homographySVD(H, cv::SVD::NO_UV);
                             double det = 0;
                             try
@@ -229,6 +233,7 @@ void AssemblyPart::FindMatches(const cv::Mat& descriptor_scene, const std::vecto
                                 {
                                     acceptable_H = true;
                                     //std::cout << "  ----> winner";
+                                    //std::cout << std::endl;
                                 }
                                 else
                                 {
@@ -237,6 +242,7 @@ void AssemblyPart::FindMatches(const cv::Mat& descriptor_scene, const std::vecto
                                         std::fill(scene_corners[i].begin(), scene_corners[i].end(), cv::Point(0, 0));
                                         break;
                                     }
+                                    std::cout << std::endl;
                                 }
 
                                 obj_corners[0] = cv::Point2f(0, 0);
@@ -266,6 +272,8 @@ void AssemblyPart::FindMatches(const cv::Mat& descriptor_scene, const std::vecto
                                             scene_corners[i].push_back(cv::Point(0, 0));
                                         }
                                     }
+
+
                                     if(!isRectangularShape(corners))
                                     {
                                         if(!scene_corners[i].empty())

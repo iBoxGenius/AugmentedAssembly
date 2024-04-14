@@ -1,13 +1,16 @@
 #include "AssemblyPart.h"
 
 
+
+//nastavit flag aj v project properties !!!
+#define WITH_OPENMP 0
+
 size_t AssemblyPart::iLiving = 0;
 size_t AssemblyPart::iTotal = 0;
 
 
 bool AssemblyPart::isRectangularShape(std::vector<cv::Point2f>& pts)
 {
-    // Calculate the cosine of all angles formed by consecutive points
     std::vector<double> cosines;
     for(int i = 0; i < 4; ++i)
     {
@@ -19,11 +22,12 @@ bool AssemblyPart::isRectangularShape(std::vector<cv::Point2f>& pts)
         cosines.push_back(cosine);
     }
 
-    // Check if all angles are approximately 90 degrees (cosine close to 0)
     //const double threshold = 0.25; // Adjust threshold as needed
     const double threshold = 0.4; // Adjust threshold as needed
-    for(double cosine : cosines) {
-        if(abs(cosine) > threshold) {
+    for(double cosine : cosines)
+    {
+        if(abs(cosine) > threshold)
+        {
             return false;
         }
     }
@@ -151,7 +155,13 @@ void AssemblyPart::FindMatches(const cv::Mat& descriptor_scene, const std::vecto
                 //if(!request_not_fullfiled)
                 {
                     start_time = std::chrono::high_resolution_clock::now();
-                    for(size_t i = 0; i < m_matchers.size(); i++)
+                    
+                    /*
+                    #if WITH_OPENMP == 1
+                    #pragma omp parallel for
+                    #endif
+                    */
+                    for(int i = 0; i < m_matchers.size(); i++)
                     {
                         //start_time = std::chrono::high_resolution_clock::now();
                         try
@@ -242,7 +252,7 @@ void AssemblyPart::FindMatches(const cv::Mat& descriptor_scene, const std::vecto
                                         std::fill(scene_corners[i].begin(), scene_corners[i].end(), cv::Point(0, 0));
                                         break;
                                     }
-                                    std::cout << std::endl;
+                                    //std::cout << std::endl;
                                 }
 
                                 obj_corners[0] = cv::Point2f(0, 0);
@@ -252,8 +262,7 @@ void AssemblyPart::FindMatches(const cv::Mat& descriptor_scene, const std::vecto
                             }
                             catch(cv::Exception& e)
                             {
-                                //const char* err_msg = e.what();
-                                //std::cout << "Homography calculation exception: " << e.msg << std::endl;
+                                std::cout << "Homography calculation exception: " << e.msg << std::endl;
                             }
 
                             try
@@ -342,10 +351,16 @@ void AssemblyPart::FindMatches(const cv::Mat& descriptor_scene, const std::vecto
                         }
                     }// for each matcher
 
+                    /*
+                    #if WITH_OPENMP == 1
+                    #pragma omp barrier //synchronize all threads
+                    #endif
+                    */
                     end_time = std::chrono::high_resolution_clock::now();
                     dur = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time).count();
                     //std::cout << "Assembly Part " << iID  << "__Matching -> time elapsed:	" << dur << " ms" << std::endl;
                     //std::cout << "-------------------------------------------------------------" << std::endl;
+
 
                     {
                         std::unique_lock<std::mutex> lk(m_mutex);

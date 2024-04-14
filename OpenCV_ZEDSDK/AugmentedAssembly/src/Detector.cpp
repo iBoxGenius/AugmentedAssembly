@@ -16,7 +16,8 @@ Detector::Detector(Method method, cv::Mat& camera_frame, std::mutex& mutex, std:
 
 	if(m_method == Method::BRISK)								//90-130ms 120kp
 	{
-		m_detector_brisk = cv::BRISK::create();	
+		m_detector_brisk = cv::BRISK::create();
+		//m_detector_brisk = cv::BRISK::create(60, 3, 1.0f);
 	}
 
 	/*

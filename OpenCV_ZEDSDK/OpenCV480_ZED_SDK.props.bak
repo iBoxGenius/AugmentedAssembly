@@ -9,7 +9,7 @@
     </ClCompile>
     <Link>
       <AdditionalLibraryDirectories>$(OPENCV_DIR)\lib\Debug;$(ZED_SDK_ROOT_DIR)\lib;$(ZED_SDK_ROOT_DIR)\lib\$(Configuration);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>$(OPENCV_DIR)\lib\opencv_world480d.lib;%(AdditionalDependencies); (ZED_SDK_ROOT_DIR)\lib\sl_zed64.lib</AdditionalDependencies>
+      <AdditionalDependencies>$(OPENCV_DIR)\lib\opencv_world480d.lib;%(AdditionalDependencies); $(ZED_SDK_ROOT_DIR)\lib\sl_zed64.lib</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup />

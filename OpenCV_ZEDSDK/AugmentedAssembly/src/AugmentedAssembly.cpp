@@ -2,6 +2,7 @@
 #include "AugmentedAssembly.h"
 #include <windows.h>
 
+
 AugmentedAssembly* AugmentedAssembly::timerPtr = nullptr;
 
 
@@ -154,12 +155,10 @@ void AugmentedAssembly::Start()
 
 		//std::cout << "Number of threads:  " << std::thread::hardware_concurrency() << std::endl;
 
-		bool found = false;
-		std::vector<unsigned> found_cnt(m_parts_cnt, 0);
-
 		while(true)
 		{
 			start_time_loop = std::chrono::high_resolution_clock::now();
+
 			try
 			{
 				if((m_grabbed_frame_left_SL.getHeight() != 0) && (m_grabbed_frame_left_SL.getWidth() != 0))
@@ -172,10 +171,9 @@ void AugmentedAssembly::Start()
 
 					if(!m_grabbed_frame_left_MAT.empty())
 					{
-						cv::waitKey(10);
+						cv::waitKey(5);
 						cv::imshow("Camera_left", m_grabbed_frame_left_MAT);
 						cv::imshow("Camera_right", m_grabbed_frame_right_MAT);
-					
 					}
 				}
 
@@ -229,7 +227,6 @@ void AugmentedAssembly::Start()
 
 					for(auto& part_idx : m_step_indices)
 					{
-
 						{
 							std::unique_lock<std::mutex> lk(m_mutex_parts.get()->at(part_idx));
 							matcher_requested = m_parts_new_rq.get()->at(part_idx);
@@ -238,9 +235,17 @@ void AugmentedAssembly::Start()
 						if(matcher_requested)
 						{
 							m_assembly_parts[part_idx].SetNewSceneParam(m_descriptor_scene, m_keypoints_scene);
-							m_mutex_parts.get()->at(part_idx).lock();
-							m_parts_new_rq.get()->at(part_idx) = false;
-							m_mutex_parts.get()->at(part_idx).unlock();
+
+							if(m_instructions.HasStateChanged())
+							{
+								m_mutex_parts.get()->at(part_idx).lock();
+								m_parts_new_rq.get()->at(part_idx) = false;
+								m_mutex_parts.get()->at(part_idx).unlock();
+							}
+							else
+							{
+								m_parts_new_rq.get()->at(part_idx) = false;
+							}
 							m_cv_parts.get()->at(part_idx).notify_one();
 						}
 
@@ -254,8 +259,8 @@ void AugmentedAssembly::Start()
 					cv::Mat img_matches;
 				
 
-					cv::drawKeypoints(keypoints_image_show, keypoints_show, keypoints_image_show);
-					cv::imshow("Keypoints", keypoints_image_show);
+					//cv::drawKeypoints(keypoints_image_show, keypoints_show, keypoints_image_show);
+					//cv::imshow("Keypoints", keypoints_image_show);
 					keypoints_show.clear();
 					/********************************************************************************************************************/
 

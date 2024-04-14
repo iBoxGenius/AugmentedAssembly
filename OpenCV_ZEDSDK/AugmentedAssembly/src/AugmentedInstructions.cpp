@@ -3,21 +3,16 @@
 AugmentedInstructions* AugmentedInstructions::this_ptr = nullptr;
 
 AugmentedInstructions::AugmentedInstructions(std::vector<std::vector<std::vector<cv::Point>>>& corners, cv::Mat& camera_image, std::mutex& mutex, AssemblyStates& assembly_state, std::vector<unsigned>& step_indices, unsigned& parts_cnt):
-	m_corners(corners), m_image_camera(camera_image), m_mutex(mutex), m_assembly_state(assembly_state), m_step_indices(step_indices), m_parts_cnt(parts_cnt)
+	m_corners(corners), m_image_camera(camera_image), m_mutex(mutex), m_assembly_state(assembly_state), m_step_indices(step_indices), m_parts_cnt(parts_cnt), m_timer_duration_ms(5000), m_detected_max(25)
 {
+	m_sides_to_match = std::vector<AugmentedInstructions::Sides>(2);	//2 sides to connect
 	SetThisPtr(this);
 }
 
 
 AugmentedInstructions::~AugmentedInstructions()
 {
-	for(auto& vid : m_videos)
-	{
-		if(vid.isOpened())
-		{
-			vid.release();
-		}
-	}
+
 }
 
 
@@ -29,6 +24,7 @@ void AugmentedInstructions::StartInstructions()
 	{
 		std::cout << "Insuffiecient nubmer of objects provided" << std::endl;
 		m_steps_cnt = 0;
+		return;
 	}
 	else
 	{
@@ -45,62 +41,72 @@ void AugmentedInstructions::StartInstructions()
 	auto start_time = std::chrono::high_resolution_clock::now();
 	auto dur = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time).count();
 
+
+	SetAssemblyIndices();
 	while(true)
 	{
 		start_time = std::chrono::high_resolution_clock::now();
 
-
 		m_image_camera.copyTo(m_image_text_video);
-		InsertAnimation(m_image_text_video);
+		InsertAnimation();
 		m_image_text_video.copyTo(m_image_show);
 		DrawInstructions();
 
+		/*
 		switch(m_assembly_state)
 		{
 		case AssemblyStates::AssemblyStart:
 			if(m_changed_state)
 			{
+				m_changed_state_for_main = true;
 				SetAssemblyIndices();
 				m_changed_state = false;
 			}
+			CheckForNewState();
 
 			break;
 		case AssemblyStates::AssemblyStep:
 			if(m_changed_state)
 			{
+				m_changed_state_for_main = true;
 				SetAssemblyIndices();
 				m_changed_state = false;
 			}
+			CheckForNewState();
 
 			break;
 		case AssemblyStates::AssemblyFinal:
 			if(m_changed_state)
 			{
+				m_changed_state_for_main = true;
 				SetAssemblyIndices();
 				m_changed_state = false;
 			}
+			CheckForNewState();
+
+			break;
+		default:
+			break;
+		}
+		*/
+
+		CheckForNewState();
+		switch(m_assembly_state)
+		{
+		case AssemblyStates::AssemblyStart:
+
+			break;
+		case AssemblyStates::AssemblyStep:
+			
+			break;
+		case AssemblyStates::AssemblyFinal:
 
 			break;
 		default:
 			break;
 		}
 
-		if(!m_found_parts)
-		{
-			unsigned detected_part_cnt = 0;
-			for(auto& part_idx : m_step_indices)
-			{
-				if(m_found_part_cnt[part_idx] >= 200)
-				{
-					detected_part_cnt++;
-				}
-				if(detected_part_cnt >= m_step_indices.size())
-				{
-					m_found_parts = true;
-					m_timer_id = SetTimer(NULL, 1, 5000, (TIMERPROC)AugmentedInstructions::TimerProcStatic);
-				}
-			}
-		}
+
 
 		end_time = std::chrono::high_resolution_clock::now();
 		dur = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time).count();
@@ -112,7 +118,7 @@ void AugmentedInstructions::StartInstructions()
 
 void AugmentedInstructions::DrawInstructions()
 {
-	Lines_label lines_label = Lines_label::Top;
+	Sides lines_label = Sides::Top;
 
 	if(!m_image_camera.empty())
 	{
@@ -122,8 +128,20 @@ void AugmentedInstructions::DrawInstructions()
 			for(size_t j = 0; j < m_corners[part_idx].size(); j++)
 			{
 				if(!m_corners[part_idx][j].empty())
-				{
-					m_found_part_cnt[part_idx]++;
+				{	
+					bool is_empty = false;
+					for(auto& pt : m_corners[part_idx][j])
+					{
+						if(pt.x == 0 && pt.y == 0)
+						{
+							is_empty = true;
+						}
+					}
+
+					if(!is_empty)
+					{
+						m_found_part_cnt[part_idx]++;
+					}
 
 					cv::line(m_image_show, m_corners[part_idx][j][0], m_corners[part_idx][j][1], cv::Scalar(255, 0, 0), 2);
 					cv::line(m_image_show, m_corners[part_idx][j][1], m_corners[part_idx][j][2], cv::Scalar(255, 255, 0), 2);
@@ -174,7 +192,7 @@ void AugmentedInstructions::LoadStepAnimations(std::filesystem::path path_to_ste
 	}
 }
 
-void AugmentedInstructions::InsertAnimation(cv::Mat &camera_frame)
+void AugmentedInstructions::InsertAnimation()
 {
 	cv::Mat video_frame;
 	m_videos[0] >> video_frame;
@@ -186,71 +204,96 @@ void AugmentedInstructions::InsertAnimation(cv::Mat &camera_frame)
 
 	cv::resize(video_frame, video_frame, cv::Size(220, 290), 0, 0, cv::INTER_AREA);
 	cv::cvtColor(video_frame, video_frame, cv::COLOR_BGR2BGRA);
-
-	/*
-	cv::Mat alpha(video_frame.size(), CV_8UC1, cv::Scalar(255*0.5)); // Initialize alpha channel with full opacity
-	cv::Mat imageWithAlpha;
-	std::vector<cv::Mat> channels;
-	channels.push_back(video_frame);
-	channels.push_back(alpha);
-	cv::merge(channels, imageWithAlpha);
-	cvtColor(imageWithAlpha, video_frame, cv::COLOR_BGR2BGRA);
-	auto xd = video_frame.channels();
-	auto ch = imageWithAlpha.channels();
-	*/
-
 	video_frame.copyTo(m_image_text_video(cv::Rect(m_image_text_video.cols - video_frame.cols, 0, video_frame.cols, video_frame.rows)));
 }
 
 
-void AugmentedInstructions::DrawLabel(const std::vector<cv::Point>& corners, Lines_label& lines, const unsigned index)
+bool AugmentedInstructions::HasStateChanged()
+{
+	if(m_changed_state_for_main)
+	{
+		m_changed_state_for_main = false;
+		return true;
+	}
+	return false;
+}
+
+
+void AugmentedInstructions::DrawLabel(const std::vector<cv::Point>& corners, Sides& lines, const unsigned index)
 {
 	/*
 	* Change so the label has a direct relationship with the 'corners' instead of the BB.
 	*/
 	auto r = cv::boundingRect(corners);
 	cv::rectangle(m_image_show, r, cv::Scalar(0, 255, 0), 2);
-	std::string label = std::to_string(index);
-	cv::Point textOrg(r.x, r.y - 20);
-	int fontFace = cv::FONT_HERSHEY_SIMPLEX;
-	double fontScale = 1.2;
-	cv::Scalar color(0, 0, 255);
+	cv::Point text_org(r.x, r.y - 20);
+	double font_scale = 1.2;
+	cv::Scalar colour(0, 0, 255);
 	int thickness = 4;
-	cv::putText(m_image_show, "["  + label + "]", textOrg, fontFace, fontScale, color, thickness);
+	cv::putText(m_image_show, "["  + std::to_string(index) + "]", text_org, cv::FONT_HERSHEY_SIMPLEX, font_scale, colour, thickness);
+}
+
+
+bool AugmentedInstructions::AreSidesClose()
+{
+	//if the sides are close and have a similar angle  <30°
+
+	m_corners[m_step_indices[0]][unsigned(m_sides_to_match[0])];		//m_corners[which_part][which_side]		//side of the 1st component
+	m_corners[m_step_indices[1]][unsigned(m_sides_to_match[1])];		//m_corners[which_part][which_side]		//side of the 2nd component
+
+	return true;
 }
 
 
 void AugmentedInstructions::SetAssemblyIndices()
 {
-	static unsigned step_cnt = 0;
 	switch(m_assembly_state)
 	{
 	case AssemblyStates::AssemblyStart:
 		m_step_indices.clear();
+		m_sides_to_match.clear();
+		
 		m_step_indices.push_back(0);
 		m_step_indices.push_back(1);
 		m_step_indices.push_back(2);
+		
+
+		/*
+		m_step_indices.push_back(1);
+		m_step_indices.push_back(2);
+		m_step_indices.push_back(3);
+		*/
 
 		break;
 	case AssemblyStates::AssemblyStep:
 		m_step_indices.clear();
+		m_sides_to_match.clear();
 
-		if(step_cnt == 1)
+		if(m_steps_current_step == 1)
 		{
 			m_step_indices.push_back(1);
 			m_step_indices.push_back(2);
 			m_step_indices.push_back(3);
+
+			m_sides_to_match.push_back(Sides::Bottom);
+			m_sides_to_match.push_back(Sides::Bottom);
 		}
 
-		if(step_cnt == 2)
+		if(m_steps_current_step == 2)
 		{
+			m_step_indices.push_back(0);
 			m_step_indices.push_back(3);
 			m_step_indices.push_back(4);
+
+			//m_sides_to_match.push_back(Sides::Top);
+			//m_sides_to_match.push_back(Sides::Bottom);
 		}
 
 		break;
 	case AssemblyStates::AssemblyFinal:
 		m_step_indices.clear();
+		m_sides_to_match.clear();
+
 		m_step_indices.push_back(4);
 
 		break;
@@ -260,17 +303,101 @@ void AugmentedInstructions::SetAssemblyIndices()
 }
 
 
-void AugmentedInstructions::SetTimerNextState()
+void AugmentedInstructions::SetForNextState(unsigned timer_dur, unsigned detect_cnt)
 {
-
-}
-
-
-void AugmentedInstructions::SetStateStepCallback()
-{
-	/*
-	this->m_assembly_state = AssemblyStates::AssemblyStep;
+	
 	this->m_changed_state = true;
-	auto ret = KillTimer(NULL, this->m_timer_id);
-	*/
+	this->m_changed_state_for_main = true;
+	unsigned ret = KillTimer(NULL, this->m_timer_id);
+
+	m_detected_max = detect_cnt;
+	m_timer_duration_ms = timer_dur;
+	m_found_parts = false;
+	std::fill(m_found_part_cnt.begin(), m_found_part_cnt.end(), 0);
 }
+
+
+void AugmentedInstructions::SetNextStateCallback()
+{
+	switch(m_assembly_state)
+	{
+	case AssemblyStates::AssemblyStart:
+		this->m_assembly_state = AssemblyStates::AssemblyStep;
+		SetAssemblyIndices();
+		SetForNextState(3000, 100);
+
+
+		std::cout << "Next State: Assembly Step [1]" << std::endl;
+		break;
+	case AssemblyStates::AssemblyStep:
+		SetAssemblyIndices();
+		if(m_steps_current_step < m_steps_cnt)
+		{
+			SetForNextState(3000, 20);
+			m_steps_current_step++;
+
+			std::cout << "Next State: Assembly Step [2]" << std::endl;
+		}
+		else
+		{
+			this->m_assembly_state = AssemblyStates::AssemblyFinal;
+			SetForNextState(3000, 20);
+			std::cout << "Next State: Assembly Final" << std::endl;
+		}
+
+
+		break;
+	case AssemblyStates::AssemblyFinal:
+		SetAssemblyIndices();
+		std::cout << "Assembly Final was reached" << std::endl;
+		SetForNextState(3000, 99999999);
+
+		break;
+
+
+	default:
+		this->m_assembly_state = AssemblyStates::AssemblyStart;
+		SetAssemblyIndices();
+		SetForNextState(3000, 100);
+
+		break;
+	}	
+}
+
+
+void AugmentedInstructions::CheckForNewState()
+{
+	if(!m_found_parts)
+	{
+		unsigned detected_part_cnt = 0;
+		for(auto& part_idx : m_step_indices)
+		{
+			if(m_assembly_state == AssemblyStates::AssemblyStep)
+			{
+				if(AreSidesClose())
+				{
+					if(m_found_part_cnt[m_step_indices.back()] > m_detected_max)		//if the composed part is detected m_detected_max times 
+					{
+						m_found_parts = true;
+						m_timer_id = SetTimer(NULL, 1, m_timer_duration_ms, (TIMERPROC)AugmentedInstructions::TimerProcStatic);
+						break;
+					}
+				}
+			}
+			else
+			{
+				if(m_found_part_cnt[part_idx] >= m_detected_max)
+				{
+					detected_part_cnt++;
+				}
+
+				if(detected_part_cnt >= m_step_indices.size())
+				{
+					m_found_parts = true;
+					m_timer_id = SetTimer(NULL, 1, m_timer_duration_ms, (TIMERPROC)AugmentedInstructions::TimerProcStatic);
+				}
+			}
+		}
+	}
+}
+

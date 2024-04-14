@@ -25,13 +25,14 @@ public:
     void StartInstructions();
 
 
-    void InsertAnimation(cv::Mat &camera_frame);
+    void InsertAnimation();
+    bool HasStateChanged();
 
 private:
 
     AssemblyStates m_assembly_state;
     unsigned& m_parts_cnt;
-    std::mutex& m_mutex;                                      //mutexes used for notifying the main thread that new object locations have been updated
+    std::mutex& m_mutex;                                      //mutexe used for notifying the main thread that new object locations have been updated
 
     std::vector<std::vector<std::vector<cv::Point>>>& m_corners;
     cv::Mat& m_image_camera;
@@ -40,24 +41,42 @@ private:
 
     bool m_found_parts = false;
     std::vector<unsigned> m_found_part_cnt;
+    unsigned 
 
     unsigned m_steps_cnt = 0;
+    unsigned m_steps_current_step = 1;
     std::vector<unsigned>& m_step_indices;
     std::mutex m_mutex_instructions;
     bool m_changed_state = true;
+    bool m_changed_state_for_main = true;
+
+    enum class Sides
+    {
+        Top,
+        Right,
+        Bottom,
+        Left
+    };
+
+    std::vector<AugmentedInstructions::Sides> m_sides_to_match;  //[0] -> first component; [1] -> second component. In the order, which the objects are defined/parsed
+    bool AreSidesClose();
+
     void SetAssemblyIndices();
     HWND m_window_handle;
     UINT_PTR m_timer_id;
+    unsigned m_timer_duration_ms;
+    unsigned m_detected_max;
 
-    void SetTimerNextState();
+    void SetForNextState(unsigned timer_dur, unsigned detect_cnt);
 
     static VOID CALLBACK TimerProcStatic(HWND hwnd, UINT uMsg, UINT_PTR idEvent, DWORD dwTime)
     {
         AugmentedInstructions* pA = GetThisPtr();
         if(pA)
-            pA->SetStateStepCallback();
+            pA->SetNextStateCallback();
     }
-    void SetStateStepCallback();
+    void SetNextStateCallback();
+    void CheckForNewState();
 
     static void SetThisPtr(AugmentedInstructions* ptr) {
         this_ptr = ptr;
@@ -69,17 +88,8 @@ private:
     static AugmentedInstructions* this_ptr;
 
 
-    enum class Lines_label
-    {
-        Top,
-        Right,
-        Bottom,
-        Left
-    };
-
-
     void DrawInstructions();
-    void DrawLabel(const std::vector<cv::Point>& corners, Lines_label& lines, const unsigned index);
+    void DrawLabel(const std::vector<cv::Point>& corners, Sides& lines, const unsigned index);
 
     std::vector<cv::VideoCapture> m_videos;
     void LoadStepAnimations(std::filesystem::path path_to_steps);

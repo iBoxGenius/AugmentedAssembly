@@ -13,8 +13,6 @@ void AugmentedAssembly::GetNumberOfParts(std::filesystem::path path_to_parts)
 		std::cout << p.path() << std::endl;
 		m_parts_cnt++;
 	}
-
-	//m_parts_cnt = 1;
 }
 
 

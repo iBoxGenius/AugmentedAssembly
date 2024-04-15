@@ -30,6 +30,20 @@ public:
 
 private:
 
+    enum class Sides
+    {
+        Top,
+        Right,
+        Bottom,
+        Left
+    };
+
+    struct Object_match
+    {
+        std::vector<std::vector<AugmentedInstructions::Sides>> sides_to_match;
+        std::vector<std::vector<unsigned>> planes_to_connect;
+    };
+
     AssemblyStates m_assembly_state;
     unsigned& m_parts_cnt;
     std::mutex& m_mutex;                                      //mutexe used for notifying the main thread that new object locations have been updated
@@ -50,16 +64,22 @@ private:
     bool m_changed_state = true;
     bool m_changed_state_for_main = true;
 
-    enum class Sides
-    {
-        Top,
-        Right,
-        Bottom,
-        Left
-    };
+
 
     std::vector<AugmentedInstructions::Sides> m_sides_to_match;  //[0] -> first component; [1] -> second component. In the order, which the objects are defined/parsed
     bool AreSidesClose();
+    void CalculateCenter(const unsigned which_step_component, cv::Point& center);
+    void CalculateAngle(const unsigned& which_step_component, double& angle);
+    bool IsInsideComponent(const cv::Point& center, const unsigned& which_step_component);
+    bool IsInsideSlice(const cv::Point& center_to_test, const cv::Point& center_from, const unsigned& which_step_component);
+    inline bool IsAngleOk(const double angle_1, const double angle_2)
+    {
+        return (abs(angle_1 - angle_2) < 25);
+    }
+    bool m_draw_slice = false;
+    std::vector<std::vector<unsigned>> m_planes_to_connect;
+    std::vector<AugmentedInstructions::Object_match> m_object_step_properties;
+    
 
     void SetAssemblyIndices();
     HWND m_window_handle;
@@ -93,4 +113,12 @@ private:
 
     std::vector<cv::VideoCapture> m_videos;
     void LoadStepAnimations(std::filesystem::path path_to_steps);
+
+
+    cv::Point m_center;
+    cv::Point m_pt1;
+    cv::Point m_pt2;
+
+    cv::Point m_pt3;
+    cv::Point m_pt4;
 };

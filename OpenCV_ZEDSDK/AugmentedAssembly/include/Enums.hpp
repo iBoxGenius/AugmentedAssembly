@@ -11,5 +11,6 @@ enum class AssemblyStates
 {
     AssemblyStart,
     AssemblyStep,
+    AssemblyStepFinal,
     AssemblyFinal
 };

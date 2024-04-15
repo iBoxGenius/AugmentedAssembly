@@ -37,7 +37,7 @@ AugmentedAssembly
 	Vyskúšať DEBUG a RELEASES verziu
 
 AugmentedInstructions
-	Blikanie [check]
+	Blikanie []
 	Čakanie [check]
 	Labelling komponentov [check]
 	Animácia [check]

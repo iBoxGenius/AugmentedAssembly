@@ -62,7 +62,7 @@ AssemblyPart::AssemblyPart(Method method, std::filesystem::path path_to_images, 
     LoadKeypointsFromImgs(path_to_images, path_to_json);
     for(size_t i = 0; i < m_descriptors.size(); i++)
     {
-        m_matchers.push_back(Matcher(m_method, (float)0.8));
+        m_matchers.push_back(Matcher(m_method, (float)0.78));
     }
 
     for(size_t i = 0; i < m_descriptors.size(); i++)
@@ -214,14 +214,17 @@ void AssemblyPart::FindMatches(const cv::Mat& descriptor_scene, const std::vecto
 
 
                             //std::cout << "Assembly Part " << iID << std::endl;
-                            //std::cout << "[" << i << "] = " << "Keypoints == " << m_keypoints[i].size() << "   Good Matches == " << m_good_matches_filtered[i].size() << std::endl;
+                            //std::cout << "[" << i << "] = " << "Keypoints == " << m_keypoints[i].size() << "   Good Matches == " << m_good_matches_filtered[i].size();
 
 
                             //cv::SVD homographySVD(H, cv::SVD::NO_UV);
                             double det = 0;
                             try
                             {
-                                det = H.at<double>(0, 0) * H.at<double>(1, 1) - H.at<double>(1, 0) * H.at<double>(0, 1);
+                                if(!H.empty())
+                                {
+                                    det = H.at<double>(0, 0) * H.at<double>(1, 1) - H.at<double>(1, 0) * H.at<double>(0, 1);
+                                }
                             }
                             catch(cv::Exception& e)
                             {
@@ -239,6 +242,7 @@ void AssemblyPart::FindMatches(const cv::Mat& descriptor_scene, const std::vecto
                             bool acceptable_H = false;
                             try
                             {
+                                //if(true)
                                 if((det > 0.2) && (det < 1.7))
                                 {
                                     acceptable_H = true;

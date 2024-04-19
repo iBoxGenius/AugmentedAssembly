@@ -156,11 +156,12 @@ void AssemblyPart::FindMatches(const cv::Mat& descriptor_scene, const std::vecto
                 {
                     start_time = std::chrono::high_resolution_clock::now();
                     
-                    /*
+                    
                     #if WITH_OPENMP == 1
                     #pragma omp parallel for
+                    #else
+                    //#pragma omp parallel for num_threads(1)
                     #endif
-                    */
                     for(int i = 0; i < m_matchers.size(); i++)
                     {
                         //start_time = std::chrono::high_resolution_clock::now();
@@ -355,11 +356,11 @@ void AssemblyPart::FindMatches(const cv::Mat& descriptor_scene, const std::vecto
                         }
                     }// for each matcher
 
-                    /*
+                    
                     #if WITH_OPENMP == 1
                     #pragma omp barrier //synchronize all threads
                     #endif
-                    */
+                    
                     end_time = std::chrono::high_resolution_clock::now();
                     dur = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time).count();
                     //std::cout << "Assembly Part " << iID  << "__Matching -> time elapsed:	" << dur << " ms" << std::endl;

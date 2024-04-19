@@ -19,7 +19,6 @@
 
 #include <chrono>
 
-constexpr size_t KP_MAX = 2000;
 
 
 class AugmentedAssembly {

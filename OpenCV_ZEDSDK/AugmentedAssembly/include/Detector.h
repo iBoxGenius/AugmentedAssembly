@@ -16,8 +16,9 @@
 
 #include <Windows.h>
 
+constexpr size_t KP_MAX = 2000;
 constexpr double KP_RETAIN = 0.9;
-constexpr int KP_RETAIN_BODER_SIZE = 15;
+constexpr int KP_RETAIN_BODER_SIZE = 20;
 
 class Detector {
 public:

@@ -17,7 +17,6 @@ Detector::Detector(Method method, cv::Mat& camera_frame, std::mutex& mutex, std:
 	if(m_method == Method::BRISK)								//90-130ms 120kp
 	{
 		m_detector_brisk = cv::BRISK::create();
-		//m_detector_brisk = cv::BRISK::create(60, 3, 1.0f);
 	}
 
 	/*
@@ -75,8 +74,8 @@ void Detector::DetectCompute(cv::Mat mask, CV_OUT std::vector<cv::KeyPoint>& key
 						{
 							//m_detector_sift->detectAndCompute(m_camera_frame_MAT_ref, cv::noArray(), keypoints, descriptors, false);
 							m_detector_sift->detect(m_camera_frame_MAT_ref, keypoints, cv::noArray());
-							cv::KeyPointsFilter::retainBest(keypoints, keypoints.size() * KP_RETAIN);
 							cv::KeyPointsFilter::runByImageBorder(keypoints, m_camera_frame_MAT_ref.size(), KP_RETAIN_BODER_SIZE);
+							cv::KeyPointsFilter::retainBest(keypoints, keypoints.size() * KP_RETAIN);
 							m_detector_sift->compute(m_camera_frame_MAT_ref, keypoints, descriptors);
 						}
 
@@ -84,8 +83,8 @@ void Detector::DetectCompute(cv::Mat mask, CV_OUT std::vector<cv::KeyPoint>& key
 						{
 							//m_detector_orb->detectAndCompute(m_camera_frame_MAT_ref, cv::noArray(), keypoints, descriptors, false);
 							m_detector_orb->detect(m_camera_frame_MAT_ref, keypoints, cv::noArray());
-							cv::KeyPointsFilter::retainBest(keypoints, keypoints.size() * KP_RETAIN);
 							cv::KeyPointsFilter::runByImageBorder(keypoints, m_camera_frame_MAT_ref.size(), KP_RETAIN_BODER_SIZE);
+							cv::KeyPointsFilter::retainBest(keypoints, keypoints.size() * KP_RETAIN);
 							m_detector_orb->compute(m_camera_frame_MAT_ref, keypoints, descriptors);
 						}
 
@@ -94,10 +93,13 @@ void Detector::DetectCompute(cv::Mat mask, CV_OUT std::vector<cv::KeyPoint>& key
 							//m_detector_brisk->detectAndCompute(m_camera_frame_MAT_ref, cv::noArray(), keypoints, descriptors, false);
 							m_detector_brisk->detect(m_camera_frame_MAT_ref, keypoints, cv::noArray());
 							//std::cout << "Keypoints ALL:   " << keypoints.size() << std::endl;
-							cv::KeyPointsFilter::retainBest(keypoints, keypoints.size() * KP_RETAIN);
-							//std::cout << "Keypoints BEST:  " << keypoints.size() << std::endl;
 							cv::KeyPointsFilter::runByImageBorder(keypoints, m_camera_frame_MAT_ref.size(), KP_RETAIN_BODER_SIZE);
 							//std::cout << "Keypoints BORDER " << keypoints.size() << std::endl;
+
+							//cv::KeyPointsFilter::retainBest(keypoints, keypoints.size() * KP_RETAIN);
+							cv::KeyPointsFilter::retainBest(keypoints, ((keypoints.size() * KP_RETAIN) > 2000) ? (2000) : (keypoints.size() * KP_RETAIN));
+							//std::cout << "Keypoints BEST:  " << keypoints.size() << std::endl;
+
 							m_detector_brisk->compute(m_camera_frame_MAT_ref, keypoints, descriptors);
 							//std::cout << "-------------------------------" << std::endl;
 

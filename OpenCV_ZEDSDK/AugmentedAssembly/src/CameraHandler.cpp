@@ -21,6 +21,7 @@
 
 CameraHandler::CameraHandler(sl::Mat& camera_frame_left, sl::Mat& camera_frame_right, std::shared_mutex& mutex): m_camera_frame_ref_left(camera_frame_left), m_camera_frame_ref_right(camera_frame_right) ,m_failure(false), m_mutex(mutex)
 {
+    std::cout << "ZEDSDK version: " << m_zed.getSDKVersion() << std::endl;
     InitCamera(m_zed);
     /*
     // Set configuration parameters

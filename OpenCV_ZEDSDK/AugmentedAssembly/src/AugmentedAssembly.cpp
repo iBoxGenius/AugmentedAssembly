@@ -68,8 +68,8 @@ AugmentedAssembly::AugmentedAssembly(): m_zed(m_grabbed_frame_left_SL, m_grabbed
 	m_keypoints_scene.reserve(KP_MAX);
 	if(m_method == Method::BRISK)
 	{
-		cv::Mat briskDescriptors(KP_MAX, m_detector.GetDescriptorSize(), CV_8U);
-		m_descriptor_scene = briskDescriptors;
+		cv::Mat brisk_Descriptors(KP_MAX, m_detector.GetDescriptorSize(), CV_8U);
+		m_descriptor_scene = brisk_Descriptors;
 	}
 
 	if(m_method == Method::ORB)
@@ -236,9 +236,14 @@ void AugmentedAssembly::Start()
 
 							if(m_instructions.HasStateChanged())
 							{
-								m_mutex_parts.get()->at(part_idx).lock();
-								m_parts_new_rq.get()->at(part_idx) = false;
-								m_mutex_parts.get()->at(part_idx).unlock();
+								for(auto& tmp_part_idx : m_step_indices)
+								{
+									m_mutex_parts.get()->at(tmp_part_idx).lock();
+									m_parts_new_rq.get()->at(tmp_part_idx) = false;
+									m_mutex_parts.get()->at(tmp_part_idx).unlock();
+									m_cv_parts.get()->at(tmp_part_idx).notify_one();
+								}
+								break;
 							}
 							else
 							{

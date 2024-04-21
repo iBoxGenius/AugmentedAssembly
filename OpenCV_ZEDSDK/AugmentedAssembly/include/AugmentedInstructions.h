@@ -25,7 +25,6 @@ public:
     void StartInstructions();
 
 
-    void InsertAnimation();
     bool HasStateChanged();
 
 private:
@@ -55,7 +54,6 @@ private:
 
     bool m_found_parts = false;
     std::vector<unsigned> m_found_part_cnt;
-    unsigned 
 
     unsigned m_steps_cnt = 0;
     unsigned m_steps_current_step = 1;
@@ -63,7 +61,8 @@ private:
     std::mutex m_mutex_instructions;
     bool m_changed_state = true;
     bool m_changed_state_for_main = true;
-
+    
+    std::vector<std::string> m_written_instructions;
 
 
     std::vector<AugmentedInstructions::Sides> m_sides_to_match;  //[0] -> first component; [1] -> second component. In the order, which the objects are defined/parsed
@@ -110,6 +109,8 @@ private:
 
     void DrawInstructions();
     void DrawLabel(const std::vector<cv::Point>& corners, Sides& lines, const unsigned index);
+    void InsertAnimation();
+    void InsertText();
 
     std::vector<cv::VideoCapture> m_videos;
     void LoadStepAnimations(std::filesystem::path path_to_steps);

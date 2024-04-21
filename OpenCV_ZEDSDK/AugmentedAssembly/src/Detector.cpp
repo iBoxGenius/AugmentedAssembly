@@ -75,7 +75,7 @@ void Detector::DetectCompute(cv::Mat mask, CV_OUT std::vector<cv::KeyPoint>& key
 							//m_detector_sift->detectAndCompute(m_camera_frame_MAT_ref, cv::noArray(), keypoints, descriptors, false);
 							m_detector_sift->detect(m_camera_frame_MAT_ref, keypoints, cv::noArray());
 							cv::KeyPointsFilter::runByImageBorder(keypoints, m_camera_frame_MAT_ref.size(), KP_RETAIN_BODER_SIZE);
-							cv::KeyPointsFilter::retainBest(keypoints, keypoints.size() * KP_RETAIN);
+							cv::KeyPointsFilter::retainBest(keypoints, static_cast<int>(keypoints.size() * KP_RETAIN));
 							m_detector_sift->compute(m_camera_frame_MAT_ref, keypoints, descriptors);
 						}
 
@@ -84,7 +84,7 @@ void Detector::DetectCompute(cv::Mat mask, CV_OUT std::vector<cv::KeyPoint>& key
 							//m_detector_orb->detectAndCompute(m_camera_frame_MAT_ref, cv::noArray(), keypoints, descriptors, false);
 							m_detector_orb->detect(m_camera_frame_MAT_ref, keypoints, cv::noArray());
 							cv::KeyPointsFilter::runByImageBorder(keypoints, m_camera_frame_MAT_ref.size(), KP_RETAIN_BODER_SIZE);
-							cv::KeyPointsFilter::retainBest(keypoints, keypoints.size() * KP_RETAIN);
+							cv::KeyPointsFilter::retainBest(keypoints, static_cast<int>(keypoints.size() * KP_RETAIN));
 							m_detector_orb->compute(m_camera_frame_MAT_ref, keypoints, descriptors);
 						}
 
@@ -97,7 +97,7 @@ void Detector::DetectCompute(cv::Mat mask, CV_OUT std::vector<cv::KeyPoint>& key
 							//std::cout << "Keypoints BORDER " << keypoints.size() << std::endl;
 
 							//cv::KeyPointsFilter::retainBest(keypoints, keypoints.size() * KP_RETAIN);
-							cv::KeyPointsFilter::retainBest(keypoints, ((keypoints.size() * KP_RETAIN) > 2000) ? (2000) : (keypoints.size() * KP_RETAIN));
+							cv::KeyPointsFilter::retainBest(keypoints, ((keypoints.size() * KP_RETAIN) > 2000) ? (2000) : (static_cast<int>(keypoints.size() * KP_RETAIN)));
 							//std::cout << "Keypoints BEST:  " << keypoints.size() << std::endl;
 
 							m_detector_brisk->compute(m_camera_frame_MAT_ref, keypoints, descriptors);

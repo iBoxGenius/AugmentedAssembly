@@ -131,7 +131,7 @@ private:
 
         if(input.getPtr<sl::uchar1>(sl::MEM::CPU) != NULL)
         {
-            return cv::Mat(input.getHeight(), input.getWidth(), cv_type, input.getPtr<sl::uchar1>(sl::MEM::CPU));
+            return cv::Mat(static_cast<int>(input.getHeight()), static_cast<int>(input.getWidth()), cv_type, input.getPtr<sl::uchar1>(sl::MEM::CPU));
         }
         return ret;
     }

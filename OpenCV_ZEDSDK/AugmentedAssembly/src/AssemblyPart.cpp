@@ -5,26 +5,72 @@
 //nastavit flag aj v project properties !!!
 #define WITH_OPENMP 0
 
+constexpr int KEYPOINTS = 1;
+
 size_t AssemblyPart::iLiving = 0;
 size_t AssemblyPart::iTotal = 0;
+
+double CalculateIoU(std::vector<cv::Point> pts_new, std::vector<cv::Point> pts_old)
+{
+    cv::Mat mask_new = cv::Mat::zeros(cv::Size(1280, 720), CV_8UC1);
+    std::vector<std::vector<cv::Point>> contours_new = { pts_new };
+    cv::fillPoly(mask_new, contours_new, cv::Scalar(255));
+
+    cv::Mat mask_old = cv::Mat::zeros(cv::Size(1280, 720), CV_8UC1);
+    std::vector<std::vector<cv::Point>> contours_old = { pts_old };
+    cv::fillPoly(mask_old, contours_old, cv::Scalar(255));
+
+    //AREA OF UNION
+    cv::Mat mask_union = mask_new | mask_old;
+    double area_of_union = cv::countNonZero(mask_union);
+
+    //AREA OF INTERSECTION
+    cv::Mat mask_intersection = cv::Mat::zeros(cv::Size(1280, 720), CV_8UC1);
+    for(size_t j = 0; j < mask_new.rows; j++)
+    {
+        for(size_t i = 0; i < mask_new.cols; i++)
+        {
+            if(mask_old.at<uchar>(j, i) == 255 && mask_old.at<uchar>(j, i) == 255)
+            {
+                mask_intersection.at<uchar>(j, i) = 255;
+            }
+        }
+    }
+    double area_of_intersection = cv::countNonZero(mask_intersection);
+    /*
+    cv::imshow("Mask_intersection", mask_intersection);
+    cv::waitKey(10);
+
+    cv::imshow("Mask_new", mask_new);
+    cv::waitKey(10);
+
+    cv::imshow("Mask_old", mask_old);
+    cv::waitKey(10);
+
+    cv::imshow("Mask_union", mask_union);
+    cv::waitKey(10);
+    */
+    double IoU = area_of_intersection / area_of_union;
+    return IoU;
+}
 
 
 bool AssemblyPart::isRectangularShape(std::vector<cv::Point2f>& pts)
 {
-    std::vector<double> cosines;
+    std::vector<float> cosines;
     for(int i = 0; i < 4; ++i)
     {
         cv::Point2f v1 = pts[(i + 1) % 4] - pts[i];
         cv::Point2f v2 = pts[(i + 2) % 4] - pts[(i + 1) % 4];
-        double dot = v1.x * v2.x + v1.y * v2.y;
+        float dot = v1.x * v2.x + v1.y * v2.y;
         double magnitude = norm(v1) * norm(v2);
-        double cosine = dot / magnitude;
+        float cosine = dot / magnitude;
         cosines.push_back(cosine);
     }
 
     //const double threshold = 0.25; // Adjust threshold as needed
-    const double threshold = 0.4; // Adjust threshold as needed
-    for(double cosine : cosines)
+    const float threshold = 0.4f; // Adjust threshold as needed
+    for(float cosine : cosines)
     {
         if(abs(cosine) > threshold)
         {
@@ -215,8 +261,16 @@ void AssemblyPart::FindMatches(const cv::Mat& descriptor_scene, const std::vecto
 
 
                             //std::cout << "Assembly Part " << iID << std::endl;
-                            //std::cout << "[" << i << "] = " << "Keypoints == " << m_keypoints[i].size() << "   Good Matches == " << m_good_matches_filtered[i].size();
-
+                            
+                            if(KEYPOINTS == 1)
+                            {
+                                static unsigned cnt = 0;
+                                cnt++;
+                                std::cout << cnt;
+                                std::cout << " [" << i << "] = " << "Keypoints == " << m_keypoints[i].size() << "   Good Matches == " << m_good_matches_filtered[i].size();
+                                std::cout << std::endl;
+                            }
+                            
 
                             //cv::SVD homographySVD(H, cv::SVD::NO_UV);
                             double det = 0;
@@ -244,7 +298,7 @@ void AssemblyPart::FindMatches(const cv::Mat& descriptor_scene, const std::vecto
                             try
                             {
                                 //if(true)
-                                if((det > 0.2) && (det < 1.7))
+                                if((det > 0.2) && (det < 2))
                                 {
                                     acceptable_H = true;
                                     //std::cout << "  ----> winner";
@@ -255,7 +309,7 @@ void AssemblyPart::FindMatches(const cv::Mat& descriptor_scene, const std::vecto
                                     if(!scene_corners[i].empty())
                                     {
                                         std::fill(scene_corners[i].begin(), scene_corners[i].end(), cv::Point(0, 0));
-                                        break;
+                                        //break;
                                     }
                                     //std::cout << std::endl;
                                 }
@@ -287,30 +341,59 @@ void AssemblyPart::FindMatches(const cv::Mat& descriptor_scene, const std::vecto
                                         }
                                     }
 
-
-                                    if(!isRectangularShape(corners))
+                                    bool isRect = true;
+                                    isRect = isRectangularShape(corners);
+                                    if(!isRect)
                                     {
                                         if(!scene_corners[i].empty())
                                         {
-                                            //std::fill(scene_corners[i].begin(), scene_corners[i].end(), cv::Point(0, 0));
+                                            std::fill(scene_corners[i].begin(), scene_corners[i].end(), cv::Point(0, 0));
                                             rect_cnt++;
-                                            continue;
+                                            //continue;
                                         }
                                     }
 
-
-                                    for(size_t j = 0; j < corners.size(); j++)
+                                    //bool test = true;
+                                    if(isRect)
                                     {
-                                        if((corners[j].x < 0) || (corners[j].y < 0))
+                                        for(size_t j = 0; j < corners.size(); j++)
                                         {
-                                            if(!scene_corners[i].empty())
+                                            if((corners[j].x < 0) || (corners[j].y < 0))
                                             {
-                                                std::fill(scene_corners[i].begin(), scene_corners[i].end(), cv::Point(0, 0));
-                                                break;
+                                                if(!scene_corners[i].empty())
+                                                {
+                                                    std::fill(scene_corners[i].begin(), scene_corners[i].end(), cv::Point(0, 0));
+                                                    //test = false;
+                                                    break;
+                                                }
                                             }
+                                            scene_corners[i][j] = cv::Point((int)corners[j].x, (int)corners[j].y);
                                         }
-                                        scene_corners[i][j] = cv::Point((int)corners[j].x, (int)corners[j].y);
                                     }
+                                    
+                                    /*
+                                    if(KEYPOINTS == 0)
+                                    {
+                                        if(test)
+                                        {
+
+                                            static unsigned cnt = 0;
+                                            cnt++;
+                                            std::vector<cv::Point> points1 = { scene_corners[0][0], scene_corners[0][1],scene_corners[0][2], scene_corners[0][3] };
+                                            std::vector<cv::Point> points2 = { cv::Point(488, 503), cv::Point(736, 496), cv::Point(740, 661), cv::Point(492, 668) };
+                                            //std::cout << cnt << " IoU: " << CalculateIoU(points1, points2) << "   --->  Homography determinant: " << det << std::endl;
+
+                                            //double distance = sqrt(cv::norm(scene_corners[0][0] - cv::Point(488, 503)) + cv::norm(scene_corners[0][1] - cv::Point(736, 496)) + cv::norm(scene_corners[0][2] - cv::Point(740, 661)) + cv::norm(scene_corners[0][3] - cv::Point(492, 668)));
+                                            //double distance = sqrt(pow(cv::norm(scene_corners[0][0] - cv::Point(488, 503)), 2) + pow(cv::norm(scene_corners[0][1] - cv::Point(736, 496)), 2) + pow(cv::norm(scene_corners[0][2] - cv::Point(740, 661)), 2) + pow(cv::norm(scene_corners[0][3] - cv::Point(492, 668)), 2));
+                                            //std::cout << cnt << " IoU: " << CalculateIoU(points1, points2) << "   --->  Distance of corners: " << distance << std::endl;
+                                            
+                                            double reprojection_error = (cv::norm(scene_corners[0][0] - cv::Point(488, 503)) + cv::norm(scene_corners[0][1] - cv::Point(736, 496)) + cv::norm(scene_corners[0][2] - cv::Point(740, 661)) + cv::norm(scene_corners[0][3] - cv::Point(492, 668))) / 4;                                            
+                                            //std::cout << cnt << " IoU: " << CalculateIoU(points1, points2) << "   --->  Reprojection error of corners: " << reprojection_error << std::endl;
+                                            std::cout << cnt << " IoU: " << CalculateIoU(points1, points2) << "  Reprojection error of corners: " << reprojection_error << std::endl;
+                                        }
+                                    }
+                                    */
+
                                     /*
                                     double fx = 730;
                                     double fy = 730;
@@ -351,7 +434,7 @@ void AssemblyPart::FindMatches(const cv::Mat& descriptor_scene, const std::vecto
                             if(!scene_corners[i].empty())
                             {
                                 std::fill(scene_corners[i].begin(), scene_corners[i].end(), cv::Point(0, 0));
-                                break;
+                                //break;
                             }
                         }
                     }// for each matcher

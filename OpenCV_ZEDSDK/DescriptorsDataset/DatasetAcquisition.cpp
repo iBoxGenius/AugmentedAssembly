@@ -180,7 +180,7 @@ int main()
 
             /*********************************  Writing the descriptor    *******************************************************/
             
-            std::string object_name = "object_X";
+            std::string object_name = "object_0";
             cv::FileStorage store_desc(("descriptor_" + object_name + ".json"), cv::FileStorage::APPEND);
             cv::write(store_desc, desc_name + std::to_string(desc_iter), descriptor);
             store_desc.release();

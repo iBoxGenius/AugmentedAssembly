@@ -3,7 +3,7 @@
 AugmentedInstructions* AugmentedInstructions::this_ptr = nullptr;
 
 AugmentedInstructions::AugmentedInstructions(std::vector<std::vector<std::vector<cv::Point>>>& corners, cv::Mat& camera_image, std::mutex& mutex, AssemblyStates& assembly_state, std::vector<unsigned>& step_indices, unsigned& parts_cnt):
-	m_corners(corners), m_image_camera(camera_image), m_mutex(mutex), m_assembly_state(assembly_state), m_step_indices(step_indices), m_parts_cnt(parts_cnt), m_timer_duration_ms(5000), m_detected_max(2),//m_detected_max(25)
+	m_corners(corners), m_image_camera(camera_image), m_mutex(mutex), m_assembly_state(assembly_state), m_step_indices(step_indices), m_parts_cnt(parts_cnt), m_timer_duration_ms(5000), m_detected_max(20),//m_detected_max(25)
 	m_object_step_properties(2, { {std::vector<std::vector<AugmentedInstructions::Sides>>(2, std::vector<AugmentedInstructions::Sides>(2))}, {std::vector<std::vector<unsigned>>(2, std::vector<unsigned>(2))} })
 {
 	m_sides_to_match = std::vector<AugmentedInstructions::Sides>(2);	//2 sides to connect
@@ -87,6 +87,19 @@ void AugmentedInstructions::StartInstructions()
 		/*************************** STEP 2 **************************************************/
 	}
 
+	for(size_t i = 0; i < m_steps_cnt + 2; i++)
+	{
+		m_written_instructions.push_back(std::string());
+	}
+
+	if(m_steps_cnt + 2 >= 4)
+	{
+		m_written_instructions[0] = std::string("Make sure all the objects are visible");
+		m_written_instructions[1] = std::string("Connect the object [2] with the object [1]");
+		m_written_instructions[2] = std::string("Connect the object [3] with the object [0]");
+		m_written_instructions[3] = std::string("Assembly has finished sucessfully !");
+	}
+
 	LoadStepAnimations(std::filesystem::path(std::filesystem::current_path() / ("resources/steps_animations")).make_preferred());
 
 	auto end_time = std::chrono::high_resolution_clock::now();
@@ -102,46 +115,6 @@ void AugmentedInstructions::StartInstructions()
 		InsertAnimation();
 		m_image_text_video.copyTo(m_image_show);
 		DrawInstructions();
-
-		/*
-		switch(m_assembly_state)
-		{
-		case AssemblyStates::AssemblyStart:
-			if(m_changed_state)
-			{
-				m_changed_state_for_main = true;
-				SetAssemblyIndices();
-				m_changed_state = false;
-			}
-			CheckForNewState();
-
-			break;
-		case AssemblyStates::AssemblyStep:
-			if(m_changed_state)
-			{
-				m_changed_state_for_main = true;
-				SetAssemblyIndices();
-				m_changed_state = false;
-			}
-			CheckForNewState();
-
-			break;
-		case AssemblyStates::AssemblyFinal:
-			if(m_changed_state)
-			{
-				m_changed_state_for_main = true;
-				SetAssemblyIndices();
-				m_changed_state = false;
-			}
-			CheckForNewState();
-
-			break;
-		default:
-			break;
-		}
-		*/
-
-
 		CheckForNewState();
 		switch(m_assembly_state)
 		{
@@ -195,14 +168,22 @@ void AugmentedInstructions::DrawInstructions()
 						m_found_part_cnt[part_idx]++;
 					}
 
+
 					cv::line(m_image_show, m_corners[part_idx][j][0], m_corners[part_idx][j][1], cv::Scalar(255, 0, 0), 2);
 					cv::line(m_image_show, m_corners[part_idx][j][1], m_corners[part_idx][j][2], cv::Scalar(255, 255, 0), 2);
 					cv::line(m_image_show, m_corners[part_idx][j][2], m_corners[part_idx][j][3], cv::Scalar(0, 255, 255), 2);
 					cv::line(m_image_show, m_corners[part_idx][j][3], m_corners[part_idx][j][0], cv::Scalar(255, 255, 255), 2);
 
-					DrawLabel(m_corners[part_idx][j], lines_label, part_idx);
+					/*	Oclusion TEST
+					cv::line(m_image_show, cv::Point(488, 503), cv::Point(736, 496), cv::Scalar(0, 255, 0), 2);
+					cv::line(m_image_show, cv::Point(736, 496), cv::Point(740, 661), cv::Scalar(0, 255, 0), 2);
+					cv::line(m_image_show, cv::Point(740, 661), cv::Point(492, 668), cv::Scalar(0, 255, 0), 2);
+					cv::line(m_image_show, cv::Point(492, 668), cv::Point(488, 503), cv::Scalar(0, 255, 0), 2);
+					*/
 
-					//cv::circle(m_image_show, m_center, 60, cv::Scalar(0, 0, 255), 4);
+					
+					DrawLabel(m_corners[part_idx][j], lines_label, part_idx);
+					InsertText();
 					if(m_draw_slice)
 					{
 						cv::circle(m_image_show, m_center, 20, cv::Scalar(0, 0, 255), 4);
@@ -234,21 +215,22 @@ void AugmentedInstructions::DrawInstructions()
 
 void AugmentedInstructions::LoadStepAnimations(std::filesystem::path path_to_steps)
 {
+	size_t i = 0;
 	for(auto& p : std::filesystem::directory_iterator(path_to_steps))
 	{
 		if(p.path().extension() == ".mp4")
-			for(size_t i = 0; i < m_steps_cnt; i++)
-			{
-				std::filesystem::path tmp = p.path();
-				cv::String str(tmp.string());
-				m_videos.push_back(cv::VideoCapture());
-				m_videos[i].open(str, cv::CAP_FFMPEG);
+		{
+			std::filesystem::path tmp = p.path();
+			cv::String str(tmp.string());
+			m_videos.push_back(cv::VideoCapture());
+			m_videos[i].open(str, cv::CAP_FFMPEG);
 
-				if(!m_videos[i].isOpened())
-				{
-					std::cout << "The video file could not be opened." << std::endl;
-				}
+			if(!m_videos[i].isOpened())
+			{
+				std::cout << "The video file could not be opened." << std::endl;
 			}
+			i++;
+		}
 	}
 }
 
@@ -269,6 +251,33 @@ void AugmentedInstructions::InsertAnimation()
 		cv::cvtColor(video_frame, video_frame, cv::COLOR_BGR2BGRA);
 		video_frame.copyTo(m_image_text_video(cv::Rect(m_image_text_video.cols - video_frame.cols, 0, video_frame.cols, video_frame.rows)));
 	}
+}
+
+void AugmentedInstructions::InsertText()
+{
+	unsigned current_step = 0;
+	cv::Point text_org(20, 50);
+	double font_scale = 1.2;
+	cv::Scalar colour(0, 255, 0);
+	int thickness = 4;
+	switch(m_assembly_state)
+	{
+		case AssemblyStates::AssemblyStart:
+			current_step = 0;
+			cv::putText(m_image_show, m_written_instructions[current_step], text_org, cv::FONT_HERSHEY_SIMPLEX, font_scale, colour, thickness);
+			break;
+		case AssemblyStates::AssemblyStep:
+			current_step = m_steps_current_step;
+			cv::putText(m_image_show, m_written_instructions[current_step], text_org, cv::FONT_HERSHEY_SIMPLEX, font_scale, colour, thickness);
+			break;
+		case AssemblyStates::AssemblyFinal:
+			current_step = m_steps_current_step + 1;
+			cv::putText(m_image_show, m_written_instructions[current_step], text_org, cv::FONT_HERSHEY_SIMPLEX, font_scale, colour, thickness);
+			break;
+		default:
+			break;
+		}
+
 }
 
 
@@ -310,21 +319,17 @@ void AugmentedInstructions::CalculateCenter(const unsigned which_step_component,
 	//which_side in the m_object_step_properties.sides_to_match
 	for(size_t i = 0; i < m_object_step_properties[current_step].planes_to_connect.size(); i++)
 	{
-		//for(auto& index : m_object_step_properties[which_step_component].planes_to_connect[which_step_component])
-		//for(size_t j = 0; j < m_object_step_properties[current_step].planes_to_connect[i].size(); i++)
+		unsigned idx_plane = m_object_step_properties[current_step].planes_to_connect[i][which_step_component];
+		if(!m_corners[m_step_indices[which_step_component]][idx_plane].empty())
 		{
-			unsigned idx_plane = m_object_step_properties[current_step].planes_to_connect[i][which_step_component];
-			if(!m_corners[m_step_indices[which_step_component]][idx_plane].empty())
+			if(m_corners[m_step_indices[which_step_component]][idx_plane][0] != cv::Point(0, 0) &&
+				m_corners[m_step_indices[which_step_component]][idx_plane][1] != cv::Point(0, 0) &&
+				m_corners[m_step_indices[which_step_component]][idx_plane][2] != cv::Point(0, 0) &&
+				m_corners[m_step_indices[which_step_component]][idx_plane][3] != cv::Point(0, 0))
 			{
-				if(m_corners[m_step_indices[which_step_component]][idx_plane][0] != cv::Point(0, 0) &&
-					m_corners[m_step_indices[which_step_component]][idx_plane][1] != cv::Point(0, 0) &&
-					m_corners[m_step_indices[which_step_component]][idx_plane][2] != cv::Point(0, 0) &&
-					m_corners[m_step_indices[which_step_component]][idx_plane][3] != cv::Point(0, 0))
-				{
-					which_plane = idx_plane;
-					which_side = i;
-					break;
-				}
+				which_plane = idx_plane;
+				which_side = i;
+				break;
 			}
 		}
 	}
@@ -373,22 +378,18 @@ void AugmentedInstructions::CalculateAngle(const unsigned& which_step_component,
 	//which_side in the m_object_step_properties.sides_to_match
 	for(size_t i = 0; i < m_object_step_properties[current_step].planes_to_connect.size(); i++)
 	{
-		//for(auto& index : m_object_step_properties[which_step_component].planes_to_connect[which_step_component])
-		//for(size_t j = 0; j < m_object_step_properties[current_step].planes_to_connect[i].size(); i++)
+		unsigned idx_plane = m_object_step_properties[current_step].planes_to_connect[i][which_step_component];
+		if(!m_corners[m_step_indices[which_step_component]][idx_plane].empty())
 		{
-			unsigned idx_plane = m_object_step_properties[current_step].planes_to_connect[i][which_step_component];
-			if(!m_corners[m_step_indices[which_step_component]][idx_plane].empty())
+			if(m_corners[m_step_indices[which_step_component]][idx_plane][0] != cv::Point(0, 0) &&
+				m_corners[m_step_indices[which_step_component]][idx_plane][1] != cv::Point(0, 0) &&
+				m_corners[m_step_indices[which_step_component]][idx_plane][2] != cv::Point(0, 0) &&
+				m_corners[m_step_indices[which_step_component]][idx_plane][3] != cv::Point(0, 0))
 			{
-				if(m_corners[m_step_indices[which_step_component]][idx_plane][0] != cv::Point(0, 0) &&
-					m_corners[m_step_indices[which_step_component]][idx_plane][1] != cv::Point(0, 0) &&
-					m_corners[m_step_indices[which_step_component]][idx_plane][2] != cv::Point(0, 0) &&
-					m_corners[m_step_indices[which_step_component]][idx_plane][3] != cv::Point(0, 0))
-				{
-					which_plane = idx_plane;
-					which_side = i;
-					// = i;
-					break;
-				}
+				which_plane = idx_plane;
+				which_side = i;
+				// = i;
+				break;
 			}
 		}
 	}
@@ -435,20 +436,16 @@ bool AugmentedInstructions::IsInsideComponent(const cv::Point& center, const uns
 	int which_plane = -1;
 	for(size_t i = 0; i < m_object_step_properties[current_step].planes_to_connect.size(); i++)
 	{
-		//for(auto& index : m_object_step_properties[which_step_component].planes_to_connect[which_step_component])
-		//for(size_t j = 0; j < m_object_step_properties[current_step].planes_to_connect[i].size(); i++)
+		unsigned idx_plane = m_object_step_properties[current_step].planes_to_connect[i][which_step_component];
+		if(!m_corners[m_step_indices[which_step_component]][idx_plane].empty())
 		{
-			unsigned idx_plane = m_object_step_properties[current_step].planes_to_connect[i][which_step_component];
-			if(!m_corners[m_step_indices[which_step_component]][idx_plane].empty())
+			if(m_corners[m_step_indices[which_step_component]][idx_plane][0] != cv::Point(0, 0) &&
+				m_corners[m_step_indices[which_step_component]][idx_plane][1] != cv::Point(0, 0) &&
+				m_corners[m_step_indices[which_step_component]][idx_plane][2] != cv::Point(0, 0) &&
+				m_corners[m_step_indices[which_step_component]][idx_plane][3] != cv::Point(0, 0))
 			{
-				if(m_corners[m_step_indices[which_step_component]][idx_plane][0] != cv::Point(0, 0) &&
-					m_corners[m_step_indices[which_step_component]][idx_plane][1] != cv::Point(0, 0) &&
-					m_corners[m_step_indices[which_step_component]][idx_plane][2] != cv::Point(0, 0) &&
-					m_corners[m_step_indices[which_step_component]][idx_plane][3] != cv::Point(0, 0))
-				{
-					which_plane = idx_plane;
-					break;
-				}
+				which_plane = idx_plane;
+				break;
 			}
 		}
 	}
@@ -467,10 +464,10 @@ bool AugmentedInstructions::IsInsideComponent(const cv::Point& center, const uns
 
 bool AugmentedInstructions::IsInsideSlice(const cv::Point& center_to_test, const cv::Point& center_from, const unsigned& which_step_component)	//c2, 1 
 {
-	double percentage = 0.20;
+	float percentage = 0.20;
 	cv::Point pp_1, pp_2;
-	double delta_2x = 0;
-	double delta_2y = 0;
+	float delta_2x = 0;
+	float delta_2y = 0;
 
 
 	
@@ -483,22 +480,17 @@ bool AugmentedInstructions::IsInsideSlice(const cv::Point& center_to_test, const
 	//which_side in the m_object_step_properties.sides_to_match
 	for(size_t i = 0; i < m_object_step_properties[current_step].planes_to_connect.size(); i++)
 	{
-		//for(auto& index : m_object_step_properties[which_step_component].planes_to_connect[which_step_component])
-		//for(size_t j = 0; j < m_object_step_properties[current_step].planes_to_connect[i].size(); i++)
+		unsigned idx_plane = m_object_step_properties[current_step].planes_to_connect[i][which_step_component];
+		if(!m_corners[m_step_indices[which_step_component]][idx_plane].empty())
 		{
-			unsigned idx_plane = m_object_step_properties[current_step].planes_to_connect[i][which_step_component];
-			if(!m_corners[m_step_indices[which_step_component]][idx_plane].empty())
+			if(m_corners[m_step_indices[which_step_component]][idx_plane][0] != cv::Point(0, 0) &&
+				m_corners[m_step_indices[which_step_component]][idx_plane][1] != cv::Point(0, 0) &&
+				m_corners[m_step_indices[which_step_component]][idx_plane][2] != cv::Point(0, 0) &&
+				m_corners[m_step_indices[which_step_component]][idx_plane][3] != cv::Point(0, 0))
 			{
-				if(m_corners[m_step_indices[which_step_component]][idx_plane][0] != cv::Point(0, 0) &&
-					m_corners[m_step_indices[which_step_component]][idx_plane][1] != cv::Point(0, 0) &&
-					m_corners[m_step_indices[which_step_component]][idx_plane][2] != cv::Point(0, 0) &&
-					m_corners[m_step_indices[which_step_component]][idx_plane][3] != cv::Point(0, 0))
-				{
-					which_plane = idx_plane;
-					which_side = i;
-					// = i;
-					break;
-				}
+				which_plane = idx_plane;
+				which_side = i;
+				break;
 			}
 		}
 	}
@@ -570,13 +562,11 @@ bool AugmentedInstructions::AreSidesClose()
 		cv::Point c0, c1;
 		double angle_1, angle_2;
 		
-		CalculateCenter(0, c0);
-		CalculateCenter(1, c1);
+		CalculateCenter(0, c0);	//component 0
+		CalculateCenter(1, c1); //component 1
 
 		CalculateAngle(0, angle_1);
 		CalculateAngle(1, angle_2);
-		//m_corners[which_part][which_plane][which_point]		//side of the 1st component
-		//m_corners[which_part][which_plane][which_point]		//side of the 2nd component
 
 		m_center = c0;
 		IsInsideSlice(c0, c1, 1);
@@ -584,9 +574,9 @@ bool AugmentedInstructions::AreSidesClose()
 		{
 			if(IsAngleOk(angle_1, angle_2))												//if the angles are correct
 			{
-				if(IsInsideComponent(c0, 1))					//if it is inside the other component
+				if(IsInsideComponent(c0, 1))					//if center of component 0 is inside the component 1
 				{
-					if(IsInsideSlice(c0, c1, 1))		//if it is inside the slice of the component
+					if(IsInsideSlice(c0, c1, 1))				//if it is inside the slice of the component 1
 					{
 						//std::cout << "C0 Angle: " << angle_1 << "°   C1 = Angle: " << angle_2 << std::endl;
 						return true;
@@ -594,133 +584,8 @@ bool AugmentedInstructions::AreSidesClose()
 				}
 			}
 		}
-
-
-		return false;
-
-		//m_corners[which_part][which_plane][which_point]		//side of the 1st component
-		//m_corners[which_part][which_plane][which_point]		//side of the 2nd component
-
-
-		/*
-		double c1x = 0, c1y = 0, c2x = 0, c2y = 0;
-		double delta_1x = 0, delta_1y = 0, delta_2x = 0, delta_2y = 0;
-
-		double angle_rad_1 = 0, angle_rad_2 = 0;
-		double angle_deg_1 = 0, angle_deg_2 = 0;
-		switch(m_sides_to_match[0])
-		{
-		case Sides::Top:
-			c1x = (m_corners[m_step_indices[0]][0][0].x + m_corners[m_step_indices[0]][0][1].x) / 2;
-			c1y = (m_corners[m_step_indices[0]][0][0].y + m_corners[m_step_indices[0]][0][1].y) / 2;
-
-			delta_1x = abs(m_corners[m_step_indices[0]][0][1].x - m_corners[m_step_indices[0]][0][0].x);
-			delta_1y = abs(m_corners[m_step_indices[0]][0][1].y - m_corners[m_step_indices[0]][0][0].y);
-			angle_rad_1 = atan2(delta_1x, delta_1y);
-			angle_deg_1 = angle_rad_1 * 180.0 / CV_PI;
-
-			break;
-		case Sides::Right:
-
-			break;
-		case Sides::Bottom:
-
-			break;
-		case Sides::Left:
-
-			break;
-		default:
-			break;
-		}
-
-		switch(m_sides_to_match[1])
-		{
-		case Sides::Top:
-
-			break;
-		case Sides::Right:
-
-			break;
-		case Sides::Bottom:
-			c2x = (m_corners[m_step_indices[1]][0][2].x + m_corners[m_step_indices[1]][0][3].x) / 2;
-			c2y = (m_corners[m_step_indices[1]][0][2].y + m_corners[m_step_indices[1]][0][3].y) / 2;
-
-			delta_2x = abs(m_corners[m_step_indices[1]][0][3].x - m_corners[m_step_indices[1]][0][2].x);
-			delta_2y = abs(m_corners[m_step_indices[1]][0][3].y - m_corners[m_step_indices[1]][0][2].y);
-			angle_rad_2 = atan2(delta_2x, delta_2y);
-			angle_deg_2 = angle_rad_2 * 180.0 / CV_PI;
-
-			break;
-		case Sides::Left:
-
-			break;
-		default:
-			break;
-		}
-
-
-
-		//			CALCULATE perpendicular line		//
-		//cv::Point pp_1((2 * m_corners[m_step_indices[1]][0][3].x + m_corners[m_step_indices[1]][0][2].x) / 3, (2 * m_corners[m_step_indices[1]][0][3].y + m_corners[m_step_indices[1]][0][2].y) / 3);
-		//cv::Point pp_2((m_corners[m_step_indices[1]][0][3].x + 2 * m_corners[m_step_indices[1]][0][2].x) / 3, (m_corners[m_step_indices[1]][0][3].y + 2 * m_corners[m_step_indices[1]][0][2].y) / 3);
-
-
-		cv::Point rect[4];
-		rect[0] = m_corners[m_step_indices[1]][0][0];
-		rect[1] = m_corners[m_step_indices[1]][0][1];
-		rect[2] = m_corners[m_step_indices[1]][0][2];
-		rect[3] = m_corners[m_step_indices[1]][0][3];
-
-
-		//			CALCULATE perpendicular line		//
-		//cv::Point pp_1((2 * m_corners[m_step_indices[1]][0][3].x + m_corners[m_step_indices[1]][0][2].x) / 3, (2 * m_corners[m_step_indices[1]][0][3].y + m_corners[m_step_indices[1]][0][2].y) / 3);
-		//cv::Point pp_2((m_corners[m_step_indices[1]][0][3].x + 2 * m_corners[m_step_indices[1]][0][2].x) / 3, (m_corners[m_step_indices[1]][0][3].y + 2 * m_corners[m_step_indices[1]][0][2].y) / 3);
-		double percentage = 0.15;
-		cv::Point pp_1 = cv::Point(c2x, c2y) + percentage * (m_corners[m_step_indices[1]][0][3] - cv::Point(c2x, c2y));
-		cv::Point pp_2 = cv::Point(c2x, c2y) + percentage * (m_corners[m_step_indices[1]][0][2] - cv::Point(c2x, c2y));
-
-
-		delta_2x = m_corners[m_step_indices[1]][0][3].x - m_corners[m_step_indices[1]][0][2].x;
-		delta_2y = m_corners[m_step_indices[1]][0][3].y - m_corners[m_step_indices[1]][0][2].y;
-		double slope = delta_2y / delta_2x;
-		double perpendicular_slope = -1.0 / slope;
-		unsigned length = 90;
-		double dx = length / sqrt(1 + perpendicular_slope * perpendicular_slope);
-		double dy = perpendicular_slope * dx;
-		m_pt1 = cv::Point (pp_1.x - dx, pp_1.y - dy);
-		m_pt2 = cv::Point (pp_1.x + dx, pp_1.y + dy);
-
-		m_pt3 = cv::Point(pp_2.x - dx, pp_2.y - dy);
-		m_pt4 = cv::Point(pp_2.x + dx, pp_2.y + dy);
-
-		cv::Point rect_slice[4];
-		rect_slice[0] = m_pt1;
-		rect_slice[1] = m_pt2;
-		rect_slice[2] = m_pt3;
-		rect_slice[3] = m_pt4;
-
-		m_center = cv::Point(c1x, c1y);
-		std::vector<cv::Point> contour_slice(rect_slice, rect_slice + 4);
-		std::vector<cv::Point> contour(rect, rect + 4);
-		if(m_center.x > 0 && m_center.y > 0)							//if there is a center
-		{
-			if((abs(angle_deg_1 - angle_deg_2) < 25))			//if the angles are correct
-			{
-				if(cv::pointPolygonTest(contour, m_center, false) > 0)		//if it is inside the other component
-				{
-					if(cv::pointPolygonTest(contour_slice, m_center, false) > 0)	//if it is inside the slice of the component
-					{
-						//std::cout << "C0 Angle: " << angle_deg_1 << "°   C1 = Angle: " << angle_deg_2 << std::endl;
-						return true;
-
-					}
-				}
-			}
-		}
-
-		return false;
-		*/
 	}
+	return false;
 }
 
 

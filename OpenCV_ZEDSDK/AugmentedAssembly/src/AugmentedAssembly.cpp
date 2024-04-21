@@ -234,6 +234,7 @@ void AugmentedAssembly::Start()
 						{
 							m_assembly_parts[part_idx].SetNewSceneParam(m_descriptor_scene, m_keypoints_scene);
 
+							/*
 							if(m_instructions.HasStateChanged())
 							{
 								for(auto& tmp_part_idx : m_step_indices)
@@ -245,11 +246,17 @@ void AugmentedAssembly::Start()
 								}
 								break;
 							}
-							else
+							//else
 							{
-								m_parts_new_rq.get()->at(part_idx) = false;
+							//	m_parts_new_rq.get()->at(part_idx) = false;
 							}
+							//m_cv_parts.get()->at(part_idx).notify_one();
+							*/
+							m_mutex_parts.get()->at(part_idx).lock();
+							m_parts_new_rq.get()->at(part_idx) = false;
+							m_mutex_parts.get()->at(part_idx).unlock();
 							m_cv_parts.get()->at(part_idx).notify_one();
+							
 						}
 
 					}
@@ -262,8 +269,8 @@ void AugmentedAssembly::Start()
 					cv::Mat img_matches;
 				
 
-					//cv::drawKeypoints(keypoints_image_show, keypoints_show, keypoints_image_show);
-					//cv::imshow("Keypoints", keypoints_image_show);
+					cv::drawKeypoints(keypoints_image_show, keypoints_show, keypoints_image_show);
+					cv::imshow("Keypoints", keypoints_image_show);
 					keypoints_show.clear();
 					/********************************************************************************************************************/
 

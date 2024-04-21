@@ -51,7 +51,6 @@ void Matcher::Match(const cv::Mat& descriptor_object, const cv::Mat& descriptor_
             }
         }
 
-    
         if(!knn_matches.empty() && !keypoints_scene.empty())
         {
             FilterOutliersLoweTest(knn_matches, good_matches_filtered);
@@ -60,7 +59,6 @@ void Matcher::Match(const cv::Mat& descriptor_object, const cv::Mat& descriptor_
             //good_matches_filtered = good_matches;
             //FilterOutliersSpatial(keypoints_scene, good_matches, good_matches_filtered);
         }
-
     }
     catch(cv::Exception& e)
     {

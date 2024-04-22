@@ -5,7 +5,7 @@
 //nastavit flag aj v project properties !!!
 #define WITH_OPENMP 0
 
-constexpr int KEYPOINTS = 1;
+constexpr int KEYPOINTS = 0;
 
 size_t AssemblyPart::iLiving = 0;
 size_t AssemblyPart::iTotal = 0;

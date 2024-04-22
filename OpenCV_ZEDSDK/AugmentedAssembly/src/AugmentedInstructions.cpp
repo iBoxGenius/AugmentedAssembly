@@ -3,8 +3,9 @@
 AugmentedInstructions* AugmentedInstructions::this_ptr = nullptr;
 
 AugmentedInstructions::AugmentedInstructions(std::vector<std::vector<std::vector<cv::Point>>>& corners, cv::Mat& camera_image, std::mutex& mutex, AssemblyStates& assembly_state, std::vector<unsigned>& step_indices, unsigned& parts_cnt):
-	m_corners(corners), m_image_camera(camera_image), m_mutex(mutex), m_assembly_state(assembly_state), m_step_indices(step_indices), m_parts_cnt(parts_cnt), m_timer_duration_ms(5000), m_detected_max(20),//m_detected_max(25)
-	m_object_step_properties(2, { {std::vector<std::vector<AugmentedInstructions::Sides>>(2, std::vector<AugmentedInstructions::Sides>(2))}, {std::vector<std::vector<unsigned>>(2, std::vector<unsigned>(2))} })
+	m_corners(corners), m_image_camera(camera_image), m_mutex(mutex), m_assembly_state(assembly_state), m_step_indices(step_indices), m_parts_cnt(parts_cnt), m_timer_duration_ms(5000), m_detected_max(5),//m_detected_max(25)
+	m_object_step_properties(2, { {std::vector<std::vector<AugmentedInstructions::Sides>>(2, std::vector<AugmentedInstructions::Sides>(2))}, {std::vector<std::vector<unsigned>>(2, std::vector<unsigned>(2))} }),
+	m_blink_sides(2)
 {
 	m_sides_to_match = std::vector<AugmentedInstructions::Sides>(2);	//2 sides to connect
 	SetThisPtr(this);
@@ -108,6 +109,8 @@ void AugmentedInstructions::StartInstructions()
 
 
 	SetAssemblyIndices();
+
+	m_timer_fps_id = SetTimer(NULL, 4, 1000, (TIMERPROC)AugmentedInstructions::TimerFpsStatic);
 	while(true)
 	{
 		start_time = std::chrono::high_resolution_clock::now();
@@ -143,11 +146,8 @@ void AugmentedInstructions::StartInstructions()
 
 void AugmentedInstructions::DrawInstructions()
 {
-	Sides lines_label = Sides::Top;
-
 	if(!m_image_camera.empty())
 	{
-		//#pragma omp simd
 		for(auto& part_idx : m_step_indices)
 		{
 			for(size_t j = 0; j < m_corners[part_idx].size(); j++)
@@ -182,14 +182,23 @@ void AugmentedInstructions::DrawInstructions()
 					*/
 
 					
-					DrawLabel(m_corners[part_idx][j], lines_label, part_idx);
+					DrawLabel(m_corners[part_idx][j], part_idx);
 					InsertText();
+
+					DetermineCorrectPlanes();
+
 					if(m_draw_slice)
 					{
 						cv::circle(m_image_show, m_center, 20, cv::Scalar(0, 0, 255), 4);
+						m_center = cv::Point(-100, -100);
 						cv::line(m_image_show, m_pt1, m_pt2, cv::Scalar(0, 0, 255), 2);
+						m_pt1 = cv::Point(-1, -1);
+						m_pt2 = cv::Point(-1, -1);
 						cv::line(m_image_show, m_pt3, m_pt4, cv::Scalar(0, 0, 255), 2);
+						m_pt3 = cv::Point(-1, -1);
+						m_pt4 = cv::Point(-1, -1);
 					}
+					
 
 					/*
 					cv::line(DEMONSTRATION_FRAME_RIGHT, m_corners[part_idx][j][0], m_corners[part_idx][j][1], cv::Scalar(0, 255, 0), 2);
@@ -205,6 +214,7 @@ void AugmentedInstructions::DrawInstructions()
 				cv::imshow("DEMONSTRATION_LEFT", m_image_show);
 				//cv::imshow("DEMONSTRATION_RIGHT", DEMONSTRATION_FRAME_RIGHT);
 				cv::waitKey(10);
+				m_fps++;
 			}
 		}
 
@@ -281,6 +291,165 @@ void AugmentedInstructions::InsertText()
 }
 
 
+void AugmentedInstructions::DetermineCorrectPlanes()
+{
+	if(m_assembly_state == AssemblyStates::AssemblyStep)
+	{
+		unsigned current_step = m_steps_current_step - 1;
+		//the second object is the default -> m_corners[m_step_indices[1]]
+
+		//determine which plane is visible from planes to connect
+		int visible_idx_default = -1;
+		int visible_idx_desired = -1;
+		int visible_idx_other = -1;
+		unsigned which_cmp_default = 1;
+		std::vector<unsigned>* connectable_planes = nullptr;
+		
+		//if the timer isn't running == no need to calculate
+		if(m_blink_sides[1].timer_blink_id == 0)
+		{
+			//find which plane is visible of the default component
+			for(size_t i = 0; i < m_corners[m_step_indices[1]].size(); i++)
+			{
+				for(auto& pt : m_corners[m_step_indices[1]][i])	//each point
+				{
+					if(pt != cv::Point(0, 0))
+					{
+						visible_idx_default = i;
+						if(m_blink_sides[1].visible_plane != visible_idx_default)
+						{
+							m_blink_sides[0].current_cycle = 0;
+							m_blink_sides[1].current_cycle = 0;
+						}
+						m_blink_sides[1].visible_plane = i;
+						break;
+					}
+				}
+			}
+
+			//find which CONNECTABLE plane is visible for the default component - to get the relatioship of the [default <--> other]
+			for(auto& plane_connection : m_object_step_properties[current_step].planes_to_connect)
+			{
+				for(auto& pt : m_corners[m_step_indices[which_cmp_default]][plane_connection[which_cmp_default]])	//each point
+				{
+					if(pt != cv::Point(0, 0))
+					{
+						visible_idx_desired = plane_connection[1];
+						//connectable_planes = &plane_connection;
+						m_blink_sides[0].connectable_planes = &plane_connection;
+						m_blink_sides[1].connectable_planes = &plane_connection;
+					}
+				}
+			}
+
+			if(visible_idx_default >= 0)
+			{
+				if(visible_idx_default == visible_idx_desired)
+				{
+					m_blink_sides[1].is_correct_plane = true;
+				}
+				else
+				{
+					m_blink_sides[1].is_correct_plane = false;
+				}
+
+				//if the timer has not been already set && the current cycles are not fulfilled
+				if(m_blink_sides[1].current_cycle < m_blink_sides[1].max_cycles)
+				{
+					BlinkSide(1, m_corners[m_step_indices[1]][visible_idx_default]);
+				}
+			}
+		}
+
+
+		//if the timer isn't running == no need to calculate
+		if(m_blink_sides[0].timer_blink_id == 0)
+		{
+			//find which plane is visible for the other component
+			for(size_t i = 0; i < m_corners[m_step_indices[0]].size(); i++)
+			{
+				for(auto& pt : m_corners[m_step_indices[0]][i])	//each point
+				{
+					if(pt != cv::Point(0, 0))
+					{
+						visible_idx_other = i;
+						if(m_blink_sides[0].visible_plane != visible_idx_other)
+						{
+							m_blink_sides[0].current_cycle = 0;
+						}
+						m_blink_sides[0].visible_plane = i;
+						break;
+					}
+				}
+			}
+
+			if(visible_idx_other >= 0)
+			{
+				//if the timer has not been already set && the current cycles are not fulfilled
+				if(m_blink_sides[0].current_cycle < m_blink_sides[0].max_cycles)
+				{
+					if(m_blink_sides[1].connectable_planes)
+					{
+						//if the currently visible plane for the other component is the same as for the pair [default <--> other]
+						if((visible_idx_other == m_blink_sides[1].connectable_planes->at(0)))
+						{
+							m_blink_sides[0].is_correct_plane = true;
+						}
+						else
+						{
+							m_blink_sides[0].is_correct_plane = false;
+						}
+					}
+					BlinkSide(0, m_corners[m_step_indices[0]][visible_idx_other]);
+				}
+			}
+		}
+
+		
+	}
+}
+
+
+void AugmentedInstructions::BlinkSide(unsigned which_component, std::vector<cv::Point> corners)
+{
+	m_blink_sides[which_component].pts = corners;
+
+	if(which_component == 0)
+	{
+		m_blink_sides[which_component].timer_blink_id = SetTimer(NULL, 2, 150, (TIMERPROC)AugmentedInstructions::TimerBlink0Static);
+	}
+
+	if(which_component == 1)
+	{
+		m_blink_sides[which_component].timer_blink_id = SetTimer(NULL, 3, 150, (TIMERPROC)AugmentedInstructions::TimerBlink1Static);
+	}
+}
+
+
+void AugmentedInstructions::BlinkCallback(unsigned which_timer)
+{
+	m_blink_sides[which_timer].current_cnt++;
+	if(m_blink_sides[which_timer].current_cnt > 6)
+	{
+		unsigned ret = KillTimer(NULL, m_blink_sides[which_timer].timer_blink_id);
+		m_blink_sides[which_timer].current_cnt = 0;
+		m_blink_sides[which_timer].timer_blink_id = 0;
+		m_blink_sides[which_timer].current_cycle++;
+	}
+	else
+	{
+		if(m_blink_sides[which_timer].is_correct_plane)
+		{
+			cv::fillConvexPoly(m_image_show, m_blink_sides[which_timer].pts.data(), m_blink_sides[which_timer].pts.size(), cv::Scalar(0, 230, 0));
+		}
+		else
+		{
+			cv::fillConvexPoly(m_image_show, m_blink_sides[which_timer].pts.data(), m_blink_sides[which_timer].pts.size(), cv::Scalar(0, 0, 230));
+		}
+	}
+}
+
+
 bool AugmentedInstructions::HasStateChanged()
 {
 	if(m_changed_state_for_main)
@@ -292,7 +461,7 @@ bool AugmentedInstructions::HasStateChanged()
 }
 
 
-void AugmentedInstructions::DrawLabel(const std::vector<cv::Point>& corners, Sides& lines, const unsigned index)
+void AugmentedInstructions::DrawLabel(const std::vector<cv::Point>& corners, const unsigned index)
 {
 	/*
 	* Change so the label has a direct relationship with the 'corners' instead of the BB.
@@ -568,7 +737,11 @@ bool AugmentedInstructions::AreSidesClose()
 		CalculateAngle(0, angle_1);
 		CalculateAngle(1, angle_2);
 
-		m_center = c0;
+		if(c0 != cv::Point(0, 0))
+		{
+			m_center = c0;
+		}
+		
 		IsInsideSlice(c0, c1, 1);
 		if(c0.x > 0 && c0.y > 0 && c1.x > 0 && c1.y > 0)											//if there is a center
 		{
@@ -704,6 +877,13 @@ void AugmentedInstructions::SetNextStateCallback()
 	case AssemblyStates::AssemblyStep:
 		//m_step_indices.clear();
 		//m_sides_to_match.clear();
+		
+		//reset for the next step
+		for(auto& blink : m_blink_sides)
+		{
+			blink.current_cycle = 0;
+		}
+
 		SetAssemblyIndices();
 		if(m_steps_current_step < m_steps_cnt)
 		{
@@ -780,6 +960,13 @@ void AugmentedInstructions::SetNextStateCallback()
 }
 
 
+void AugmentedInstructions::FpsCallback()
+{
+	std::cout << "FPS: " << m_fps << std::endl;
+	m_fps = 0;
+}
+
+
 void AugmentedInstructions::CheckForNewState()
 {
 	if(!m_found_parts)
@@ -791,15 +978,6 @@ void AugmentedInstructions::CheckForNewState()
 			{
 				if(AreSidesClose())
 				{
-					/*
-					std::cout << "SidesAreClose" << std::endl;
-					if(m_found_part_cnt[m_step_indices.back()] > m_detected_max)		//if the composed part is detected m_detected_max times 
-					{
-						m_found_parts = true;
-						m_timer_id = SetTimer(NULL, 1, m_timer_duration_ms, (TIMERPROC)AugmentedInstructions::TimerProcStatic);
-						break;
-					}
-					*/
 					m_found_parts = true;
 					m_timer_id = SetTimer(NULL, 1, m_timer_duration_ms, (TIMERPROC)AugmentedInstructions::TimerProcStatic);
 					break;

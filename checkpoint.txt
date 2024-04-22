@@ -41,6 +41,6 @@ AugmentedInstructions
 	Čakanie [check]
 	Labelling komponentov [check]
 	Animácia [check]
-	Text - kde?
+	Text [check]
 	Nejaká forma poukázania na otočenie komponentu?
 

@@ -27,6 +27,11 @@ public:
 
     bool HasStateChanged();
 
+    inline cv::Mat& GetDemonstrationImage()
+    {
+        return m_image_show;
+    }
+
 private:
 
     enum class Sides
@@ -92,7 +97,9 @@ private:
     {
         AugmentedInstructions* pA = GetThisPtr();
         if(pA)
+        {
             pA->SetNextStateCallback();
+        }
     }
     void SetNextStateCallback();
     void CheckForNewState();
@@ -108,9 +115,42 @@ private:
 
 
     void DrawInstructions();
-    void DrawLabel(const std::vector<cv::Point>& corners, Sides& lines, const unsigned index);
+    void DrawLabel(const std::vector<cv::Point>& corners, const unsigned index);
     void InsertAnimation();
     void InsertText();
+    
+    void DetermineCorrectPlanes();
+    void BlinkSide(unsigned which_component, std::vector<cv::Point> corners);
+    struct BlinkSides
+    {
+        UINT_PTR timer_blink_id = 0;
+        unsigned current_cnt = 0;
+        std::vector<cv::Point> pts;
+        unsigned current_cycle = 0;
+        unsigned max_cycles = 1;
+        bool is_correct_plane = true;
+        int visible_plane = -1;
+        std::vector<unsigned>* connectable_planes = nullptr;
+    };
+    std::vector<BlinkSides> m_blink_sides;
+    static VOID CALLBACK TimerBlink0Static(HWND hwnd, UINT uMsg, UINT_PTR idEvent, DWORD dwTime)
+    {
+        AugmentedInstructions* pA = GetThisPtr();
+        if(pA)
+        {
+            pA->BlinkCallback(0);
+        }
+    }
+
+    static VOID CALLBACK TimerBlink1Static(HWND hwnd, UINT uMsg, UINT_PTR idEvent, DWORD dwTime)
+    {
+        AugmentedInstructions* pA = GetThisPtr();
+        if(pA)
+        {
+            pA->BlinkCallback(1);
+        }
+    }
+    void BlinkCallback(unsigned which_timer);
 
     std::vector<cv::VideoCapture> m_videos;
     void LoadStepAnimations(std::filesystem::path path_to_steps);
@@ -119,7 +159,18 @@ private:
     cv::Point m_center;
     cv::Point m_pt1;
     cv::Point m_pt2;
-
     cv::Point m_pt3;
     cv::Point m_pt4;
+
+    unsigned m_fps = 0;
+    UINT_PTR m_timer_fps_id;
+    static VOID CALLBACK TimerFpsStatic(HWND hwnd, UINT uMsg, UINT_PTR idEvent, DWORD dwTime)
+    {
+        AugmentedInstructions* pA = GetThisPtr();
+        if(pA)
+        {
+            pA->FpsCallback();
+        }
+    }
+    void FpsCallback();
 };

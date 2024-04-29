@@ -1,9 +1,5 @@
 
 #include "AugmentedAssembly.h"
-#include <windows.h>
-
-
-AugmentedAssembly* AugmentedAssembly::timerPtr = nullptr;
 
 
 void AugmentedAssembly::GetNumberOfParts(std::filesystem::path path_to_parts)
@@ -48,9 +44,10 @@ AugmentedAssembly::AugmentedAssembly(): m_zed(m_grabbed_frame_left_SL, m_grabbed
 	* j => per side
 	* k => per corner
 	*/
+	unsigned planes_cnt = 10;
 	for(size_t i = 0; i < m_scene_corners.size(); i++)
 	{
-		m_scene_corners[i] = std::vector<std::vector<cv::Point>>(6);
+		m_scene_corners[i] = std::vector<std::vector<cv::Point>>(planes_cnt);
 		for(size_t j = 0; j < m_scene_corners[i].size(); j++)
 		{
 			/*
@@ -169,9 +166,9 @@ void AugmentedAssembly::Start()
 
 					if(!m_grabbed_frame_left_MAT.empty())
 					{
-						cv::waitKey(5);
-						cv::imshow("Camera_left", m_grabbed_frame_left_MAT);
-						cv::imshow("Camera_right", m_grabbed_frame_right_MAT);
+						//cv::imshow("Camera_left", m_grabbed_frame_left_MAT);
+						//cv::imshow("Camera_right", m_grabbed_frame_right_MAT);
+						//cv::waitKey(5);
 					}
 				}
 
@@ -268,9 +265,11 @@ void AugmentedAssembly::Start()
 					keypoints_show = m_keypoints_scene;
 					cv::Mat img_matches;
 				
-
+					/*
 					cv::drawKeypoints(keypoints_image_show, keypoints_show, keypoints_image_show);
 					cv::imshow("Keypoints", keypoints_image_show);
+					cv::waitKey(5);
+					*/
 					keypoints_show.clear();
 					/********************************************************************************************************************/
 
@@ -301,56 +300,6 @@ void AugmentedAssembly::Start()
 			}
 		}
 	}
-}
-
-void AugmentedAssembly::SetAssemblyIndices()
-{
-	static unsigned step_cnt = 0;
-	switch(m_assembly_state)
-	{
-		case AssemblyStates::AssemblyStart:
-			m_step_indices.clear();
-			m_step_indices.push_back(0);
-			m_step_indices.push_back(1);
-			m_step_indices.push_back(2);
-
-			break;
-		case AssemblyStates::AssemblyStep:
-			m_step_indices.clear();
-
-			if(step_cnt == 1)
-			{
-				m_step_indices.push_back(1);
-				m_step_indices.push_back(2);
-				m_step_indices.push_back(3);
-			}
-
-			if(step_cnt == 2)
-			{
-				m_step_indices.push_back(3);
-				m_step_indices.push_back(4);
-			}
-
-			break;
-		case AssemblyStates::AssemblyFinal:
-			m_step_indices.clear();
-			m_step_indices.push_back(4);
-
-			break;
-		default:
-			break;
-	}
-}
-
-
-void AugmentedAssembly::TimerCallback()
-{
-	this->m_assembly_state = AssemblyStates::AssemblyFinal;
-	this->changed_state = true;
-	auto ret = KillTimer(NULL, this->m_timer_id);
-	//this->m_timer_id = 0;
-	//DestroyWindow(m_window_handle);
-	//DWORD dw = GetLastError();
 }
 
 

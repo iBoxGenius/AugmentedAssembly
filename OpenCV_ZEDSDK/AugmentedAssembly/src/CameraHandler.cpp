@@ -105,7 +105,7 @@ void CameraHandler::InitCamera(sl::Camera& zed)
 {
     sl::InitParameters init_parameters;
     init_parameters.camera_resolution = sl::RESOLUTION::HD720;
-    init_parameters.camera_fps = 30;
+    init_parameters.camera_fps = 60;
     init_parameters.depth_mode = sl::DEPTH_MODE::PERFORMANCE;
     init_parameters.coordinate_units = sl::UNIT::MILLIMETER;
     m_returned_state = zed.open(init_parameters);

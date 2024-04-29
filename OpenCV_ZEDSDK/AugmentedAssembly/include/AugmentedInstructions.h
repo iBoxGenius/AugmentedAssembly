@@ -161,6 +161,7 @@ private:
     cv::Point m_pt2;
     cv::Point m_pt3;
     cv::Point m_pt4;
+    void SortPointsCounterClockwise(std::vector<cv::Point>& points);
 
     unsigned m_fps = 0;
     UINT_PTR m_timer_fps_id;
@@ -173,4 +174,5 @@ private:
         }
     }
     void FpsCallback();
+    bool m_first_run = true;
 };

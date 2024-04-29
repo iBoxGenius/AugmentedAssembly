@@ -97,7 +97,7 @@ void Detector::DetectCompute(cv::Mat mask, CV_OUT std::vector<cv::KeyPoint>& key
 							//std::cout << "Keypoints BORDER " << keypoints.size() << std::endl;
 
 							//cv::KeyPointsFilter::retainBest(keypoints, keypoints.size() * KP_RETAIN);
-							cv::KeyPointsFilter::retainBest(keypoints, ((keypoints.size() * KP_RETAIN) > 2000) ? (2000) : (static_cast<int>(keypoints.size() * KP_RETAIN)));
+							cv::KeyPointsFilter::retainBest(keypoints, ((keypoints.size() * KP_RETAIN) > KP_MAX) ? (KP_MAX) : (static_cast<int>(keypoints.size() * KP_RETAIN)));
 							//std::cout << "Keypoints BEST:  " << keypoints.size() << std::endl;
 
 							m_detector_brisk->compute(m_camera_frame_MAT_ref, keypoints, descriptors);

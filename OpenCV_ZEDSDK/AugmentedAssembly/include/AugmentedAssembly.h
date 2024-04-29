@@ -38,31 +38,6 @@ private:
     std::vector<unsigned> m_step_indices;
     std::mutex m_mutex_instructions;
     bool changed_state = true;
-    void SetAssemblyIndices();
-    HWND m_window_handle;
-    UINT_PTR m_timer_id;
-
-    static VOID CALLBACK TimerProcStatic(HWND hwnd, UINT uMsg, UINT_PTR idEvent, DWORD dwTime)
-    {
-        // Retrieve the pointer to the TimerExample instance
-        //AugmentedAssembly* pThis = reinterpret_cast<AugmentedAssembly*>(idEvent);
-        // Call the non-static member function
-        //pThis->TimerCallback();
-        AugmentedAssembly* pA = GetTimerPtr();
-        // Ensure pA is not null before calling member function
-        if(pA)
-            pA->TimerCallback();
-    }
-    void TimerCallback();
-
-    static void SetTimerPtr(AugmentedAssembly* ptr) {
-        timerPtr = ptr;
-    }
-
-    static AugmentedAssembly* GetTimerPtr() {
-        return timerPtr;
-    }
-    static AugmentedAssembly* timerPtr;
 
     // Private member variables
     sl::Mat m_grabbed_frame_left_SL;

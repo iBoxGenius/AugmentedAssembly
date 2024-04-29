@@ -3,14 +3,12 @@
 AugmentedInstructions* AugmentedInstructions::this_ptr = nullptr;
 
 AugmentedInstructions::AugmentedInstructions(std::vector<std::vector<std::vector<cv::Point>>>& corners, cv::Mat& camera_image, std::mutex& mutex, AssemblyStates& assembly_state, std::vector<unsigned>& step_indices, unsigned& parts_cnt):
-	m_corners(corners), m_image_camera(camera_image), m_mutex(mutex), m_assembly_state(assembly_state), m_step_indices(step_indices), m_parts_cnt(parts_cnt), m_timer_duration_ms(5000), m_detected_max(5),//m_detected_max(25)
+	m_corners(corners), m_image_camera(camera_image), m_mutex(mutex), m_assembly_state(assembly_state), m_step_indices(step_indices), m_parts_cnt(parts_cnt), m_timer_duration_ms(5000), m_detected_max(25),//m_detected_max(25)
 	m_object_step_properties(2, { {std::vector<std::vector<AugmentedInstructions::Sides>>(2, std::vector<AugmentedInstructions::Sides>(2))}, {std::vector<std::vector<unsigned>>(2, std::vector<unsigned>(2))} }),
 	m_blink_sides(2)
 {
 	m_sides_to_match = std::vector<AugmentedInstructions::Sides>(2);	//2 sides to connect
 	SetThisPtr(this);
-
-	
 }
 
 
@@ -19,6 +17,20 @@ AugmentedInstructions::~AugmentedInstructions()
 
 }
 
+void AugmentedInstructions::SortPointsCounterClockwise(std::vector<cv::Point>& points)
+{
+	cv::Point centroid(0, 0);
+	for(const cv::Point& pt : points)
+	{
+		centroid += pt;
+	}
+	centroid.x /= points.size();
+	centroid.y /= points.size();
+
+	std::sort(points.begin(), points.end(), [&centroid](const cv::Point& a, const cv::Point& b) {
+		return atan2(a.y - centroid.y, a.x - centroid.x) < atan2(b.y - centroid.y, b.x - centroid.x);
+	});
+}
 
 void AugmentedInstructions::StartInstructions()
 {
@@ -119,29 +131,13 @@ void AugmentedInstructions::StartInstructions()
 		m_image_text_video.copyTo(m_image_show);
 		DrawInstructions();
 		CheckForNewState();
-		switch(m_assembly_state)
-		{
-		case AssemblyStates::AssemblyStart:
-
-			break;
-		case AssemblyStates::AssemblyStep:
-			
-			break;
-		case AssemblyStates::AssemblyFinal:
-
-			break;
-		default:
-			break;
-		}
-
-
-
 		end_time = std::chrono::high_resolution_clock::now();
 		dur = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time).count();
 		//std::cout << "AssemblyInstructions duration: " << dur << " ms" << std::endl;
 	}
 
 }
+
 
 
 void AugmentedInstructions::DrawInstructions()
@@ -163,16 +159,36 @@ void AugmentedInstructions::DrawInstructions()
 						}
 					}
 
+					InsertText();
+
 					if(!is_empty)
 					{
 						m_found_part_cnt[part_idx]++;
+						cv::line(m_image_show, m_corners[part_idx][j][0], m_corners[part_idx][j][1], cv::Scalar(255, 0, 0), 2);
+						cv::line(m_image_show, m_corners[part_idx][j][1], m_corners[part_idx][j][2], cv::Scalar(255, 255, 0), 2);
+						cv::line(m_image_show, m_corners[part_idx][j][2], m_corners[part_idx][j][3], cv::Scalar(0, 255, 255), 2);
+						cv::line(m_image_show, m_corners[part_idx][j][3], m_corners[part_idx][j][0], cv::Scalar(255, 255, 255), 2);
+
+						DrawLabel(m_corners[part_idx][j], part_idx);
+						DetermineCorrectPlanes();
+
+						if(m_draw_slice)
+						{
+							cv::circle(m_image_show, m_center, 20, cv::Scalar(0, 0, 255), 4);
+							//m_center = cv::Point(-100, -100);
+							cv::line(m_image_show, m_pt1, m_pt2, cv::Scalar(0, 0, 255), 2);
+							cv::line(m_image_show, m_pt3, m_pt4, cv::Scalar(0, 0, 255), 2);
+						}
+
+						break;
+					}
+					else
+					{
+						continue;
 					}
 
 
-					cv::line(m_image_show, m_corners[part_idx][j][0], m_corners[part_idx][j][1], cv::Scalar(255, 0, 0), 2);
-					cv::line(m_image_show, m_corners[part_idx][j][1], m_corners[part_idx][j][2], cv::Scalar(255, 255, 0), 2);
-					cv::line(m_image_show, m_corners[part_idx][j][2], m_corners[part_idx][j][3], cv::Scalar(0, 255, 255), 2);
-					cv::line(m_image_show, m_corners[part_idx][j][3], m_corners[part_idx][j][0], cv::Scalar(255, 255, 255), 2);
+
 
 					/*	Oclusion TEST
 					cv::line(m_image_show, cv::Point(488, 503), cv::Point(736, 496), cv::Scalar(0, 255, 0), 2);
@@ -181,23 +197,8 @@ void AugmentedInstructions::DrawInstructions()
 					cv::line(m_image_show, cv::Point(492, 668), cv::Point(488, 503), cv::Scalar(0, 255, 0), 2);
 					*/
 
-					
-					DrawLabel(m_corners[part_idx][j], part_idx);
-					InsertText();
 
-					DetermineCorrectPlanes();
 
-					if(m_draw_slice)
-					{
-						cv::circle(m_image_show, m_center, 20, cv::Scalar(0, 0, 255), 4);
-						m_center = cv::Point(-100, -100);
-						cv::line(m_image_show, m_pt1, m_pt2, cv::Scalar(0, 0, 255), 2);
-						m_pt1 = cv::Point(-1, -1);
-						m_pt2 = cv::Point(-1, -1);
-						cv::line(m_image_show, m_pt3, m_pt4, cv::Scalar(0, 0, 255), 2);
-						m_pt3 = cv::Point(-1, -1);
-						m_pt4 = cv::Point(-1, -1);
-					}
 					
 
 					/*
@@ -213,7 +214,11 @@ void AugmentedInstructions::DrawInstructions()
 			{
 				cv::imshow("DEMONSTRATION_LEFT", m_image_show);
 				//cv::imshow("DEMONSTRATION_RIGHT", DEMONSTRATION_FRAME_RIGHT);
-				cv::waitKey(10);
+				//if(m_first_run)
+				//{
+					cv::waitKey(5);
+				//	m_first_run = false;
+				//}
 				m_fps++;
 			}
 		}
@@ -316,10 +321,13 @@ void AugmentedInstructions::DetermineCorrectPlanes()
 					if(pt != cv::Point(0, 0))
 					{
 						visible_idx_default = i;
-						if(m_blink_sides[1].visible_plane != visible_idx_default)
+						if(visible_idx_default < 4 && m_blink_sides[1].visible_plane < 4)
 						{
-							m_blink_sides[0].current_cycle = 0;
-							m_blink_sides[1].current_cycle = 0;
+							if(m_blink_sides[1].visible_plane != visible_idx_default)
+							{
+								m_blink_sides[0].current_cycle = 0;
+								m_blink_sides[1].current_cycle = 0;
+							}
 						}
 						m_blink_sides[1].visible_plane = i;
 						break;
@@ -342,7 +350,7 @@ void AugmentedInstructions::DetermineCorrectPlanes()
 				}
 			}
 
-			if(visible_idx_default >= 0)
+			if(visible_idx_default >= 0 && visible_idx_default < 4)
 			{
 				if(visible_idx_default == visible_idx_desired)
 				{
@@ -373,9 +381,12 @@ void AugmentedInstructions::DetermineCorrectPlanes()
 					if(pt != cv::Point(0, 0))
 					{
 						visible_idx_other = i;
-						if(m_blink_sides[0].visible_plane != visible_idx_other)
+						if(visible_idx_other < 4 && m_blink_sides[1].visible_plane < 4)
 						{
-							m_blink_sides[0].current_cycle = 0;
+							if(m_blink_sides[0].visible_plane != visible_idx_other)
+							{
+								m_blink_sides[0].current_cycle = 0;
+							}
 						}
 						m_blink_sides[0].visible_plane = i;
 						break;
@@ -383,7 +394,7 @@ void AugmentedInstructions::DetermineCorrectPlanes()
 				}
 			}
 
-			if(visible_idx_other >= 0)
+			if(visible_idx_other >= 0 && visible_idx_other < 4)
 			{
 				//if the timer has not been already set && the current cycles are not fulfilled
 				if(m_blink_sides[0].current_cycle < m_blink_sides[0].max_cycles)
@@ -416,12 +427,12 @@ void AugmentedInstructions::BlinkSide(unsigned which_component, std::vector<cv::
 
 	if(which_component == 0)
 	{
-		m_blink_sides[which_component].timer_blink_id = SetTimer(NULL, 2, 150, (TIMERPROC)AugmentedInstructions::TimerBlink0Static);
+		m_blink_sides[which_component].timer_blink_id = SetTimer(NULL, 2, 330, (TIMERPROC)AugmentedInstructions::TimerBlink0Static);
 	}
 
 	if(which_component == 1)
 	{
-		m_blink_sides[which_component].timer_blink_id = SetTimer(NULL, 3, 150, (TIMERPROC)AugmentedInstructions::TimerBlink1Static);
+		m_blink_sides[which_component].timer_blink_id = SetTimer(NULL, 3, 330, (TIMERPROC)AugmentedInstructions::TimerBlink1Static);
 	}
 }
 
@@ -432,6 +443,11 @@ void AugmentedInstructions::BlinkCallback(unsigned which_timer)
 	if(m_blink_sides[which_timer].current_cnt > 6)
 	{
 		unsigned ret = KillTimer(NULL, m_blink_sides[which_timer].timer_blink_id);
+		if(ret > 0)
+		{
+			ret = KillTimer(NULL, m_blink_sides[which_timer].timer_blink_id);
+		}
+
 		m_blink_sides[which_timer].current_cnt = 0;
 		m_blink_sides[which_timer].timer_blink_id = 0;
 		m_blink_sides[which_timer].current_cycle++;
@@ -626,9 +642,12 @@ bool AugmentedInstructions::IsInsideComponent(const cv::Point& center, const uns
 	rect[2] = m_corners[m_step_indices[which_step_component]][which_plane][2];
 	rect[3] = m_corners[m_step_indices[which_step_component]][which_plane][3];
 	std::vector<cv::Point> contour(rect, rect + 4);
+
 	return (cv::pointPolygonTest(contour, center, false) > 0);
 
 }
+
+
 
 
 bool AugmentedInstructions::IsInsideSlice(const cv::Point& center_to_test, const cv::Point& center_from, const unsigned& which_step_component)	//c2, 1 
@@ -693,6 +712,10 @@ bool AugmentedInstructions::IsInsideSlice(const cv::Point& center_to_test, const
 			break;
 		}
 
+		m_pt1 = cv::Point(0, 0);
+		m_pt2 = cv::Point(0, 0);
+		m_pt3 = cv::Point(0, 0);
+		m_pt4 = cv::Point(0, 0);
 
 		double slope = delta_2y / delta_2x;
 		double perpendicular_slope = -1.0 / slope;
@@ -705,14 +728,13 @@ bool AugmentedInstructions::IsInsideSlice(const cv::Point& center_to_test, const
 		m_pt3 = cv::Point(pp_2.x - dx, pp_2.y - dy);
 		m_pt4 = cv::Point(pp_2.x + dx, pp_2.y + dy);
 
-		cv::Point rect_slice[4];
-		rect_slice[0] = m_pt1;
-		rect_slice[1] = m_pt2;
-		rect_slice[2] = m_pt3;
-		rect_slice[3] = m_pt4;
-
-		std::vector<cv::Point> contour_slice(rect_slice, rect_slice + 4);
-		return (cv::pointPolygonTest(contour_slice, center_to_test, false) >= 0);
+		std::vector<cv::Point> quad;
+		quad.push_back(m_pt1);
+		quad.push_back(m_pt2);
+		quad.push_back(m_pt3);
+		quad.push_back(m_pt4);
+		SortPointsCounterClockwise(quad);
+		return (cv::pointPolygonTest(quad, center_to_test, false) >= 0);
 	}
 	return false;
 }
@@ -771,8 +793,8 @@ void AugmentedInstructions::SetAssemblyIndices()
 		m_sides_to_match.clear();
 		
 		m_step_indices.push_back(0);
-		m_step_indices.push_back(1);
-		m_step_indices.push_back(2);
+		//m_step_indices.push_back(1);
+		//m_step_indices.push_back(2);
 		//m_step_indices.push_back(3);
 		//m_step_indices.push_back(4);
 
@@ -962,7 +984,7 @@ void AugmentedInstructions::SetNextStateCallback()
 
 void AugmentedInstructions::FpsCallback()
 {
-	std::cout << "FPS: " << m_fps << std::endl;
+	//std::cout << "FPS: " << m_fps << std::endl;
 	m_fps = 0;
 }
 

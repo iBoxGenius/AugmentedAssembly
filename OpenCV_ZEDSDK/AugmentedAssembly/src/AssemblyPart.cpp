@@ -1,9 +1,7 @@
 #include "AssemblyPart.h"
 
+#include <omp.h>
 
-
-//nastavit flag aj v project properties !!!
-#define WITH_OPENMP 0
 
 constexpr int KEYPOINTS = 0;
 
@@ -106,12 +104,12 @@ AssemblyPart::AssemblyPart(Method method, std::filesystem::path path_to_images, 
     iTotal++;
     iLiving++;
     LoadKeypointsFromImgs(path_to_images, path_to_json);
-    for(size_t i = 0; i < m_descriptors.size(); i++)
+    for(size_t i = 0; i < m_images.size(); i++)
     {
         m_matchers.push_back(Matcher(m_method, (float)0.78));
     }
 
-    for(size_t i = 0; i < m_descriptors.size(); i++)
+    for(size_t i = 0; i < m_images.size(); i++)
     {
         m_good_matches_filtered.push_back(std::vector<cv::DMatch>());
     }
@@ -184,6 +182,8 @@ void AssemblyPart::FindMatches(const cv::Mat& descriptor_scene, const std::vecto
     }
 
     unsigned rect_cnt = 0;
+    unsigned detected_cnt = 0;
+    unsigned all_cnt = 0;
 
     while(true)
     {
@@ -202,14 +202,13 @@ void AssemblyPart::FindMatches(const cv::Mat& descriptor_scene, const std::vecto
                 {
                     start_time = std::chrono::high_resolution_clock::now();
                     
+                    all_cnt++;
                     
-                    #if WITH_OPENMP == 1
-                    #pragma omp parallel for
-                    #else
                     //#pragma omp parallel for num_threads(1)
-                    #endif
+                    #pragma omp parallel for
                     for(int i = 0; i < m_matchers.size(); i++)
                     {
+                        //std::cout << "Iteration " << i << " :executed by thread " << omp_get_thread_num() << std::endl;
                         //start_time = std::chrono::high_resolution_clock::now();
                         try
                         {
@@ -226,6 +225,9 @@ void AssemblyPart::FindMatches(const cv::Mat& descriptor_scene, const std::vecto
                         std::vector<cv::Point2f> obj;
                         std::vector<cv::Point2f> scene;
                         std::vector<cv::Point2f> obj_corners(4);
+
+
+                    
 
                         if(m_good_matches_filtered[i].size() >= 10)
                         {
@@ -353,7 +355,9 @@ void AssemblyPart::FindMatches(const cv::Mat& descriptor_scene, const std::vecto
                                         }
                                     }
 
-                                    //bool test = true;
+                                    
+
+                                    bool test = true;
                                     if(isRect)
                                     {
                                         for(size_t j = 0; j < corners.size(); j++)
@@ -363,14 +367,22 @@ void AssemblyPart::FindMatches(const cv::Mat& descriptor_scene, const std::vecto
                                                 if(!scene_corners[i].empty())
                                                 {
                                                     std::fill(scene_corners[i].begin(), scene_corners[i].end(), cv::Point(0, 0));
-                                                    //test = false;
+                                                    test = false;
                                                     break;
                                                 }
                                             }
                                             scene_corners[i][j] = cv::Point((int)corners[j].x, (int)corners[j].y);
                                         }
                                     }
+
+                                    if(test)
+                                    {
+                                        detected_cnt++;
+                                    }
+                                    //std::cout << "AssemblyPart [" << iID << "]" << " Detected: " << detected_cnt << " / " << all_cnt << std::endl;
                                     
+
+
                                     /*
                                     if(KEYPOINTS == 0)
                                     {
@@ -438,18 +450,12 @@ void AssemblyPart::FindMatches(const cv::Mat& descriptor_scene, const std::vecto
                             }
                         }
                     }// for each matcher
-
-                    
-                    #if WITH_OPENMP == 1
-                    #pragma omp barrier //synchronize all threads
-                    #endif
+                    //#pragma omp barrier //synchronize all threads
                     
                     end_time = std::chrono::high_resolution_clock::now();
                     dur = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time).count();
-                    //std::cout << "Assembly Part " << iID  << "__Matching -> time elapsed:	" << dur << " ms" << std::endl;
+                    std::cout << "Assembly Part " << iID  << "__Matching -> time elapsed:	" << dur << " ms" << std::endl;
                     //std::cout << "-------------------------------------------------------------" << std::endl;
-
-
                     {
                         std::unique_lock<std::mutex> lk(m_mutex);
                         m_new_kp_rq = true;
@@ -503,6 +509,10 @@ void AssemblyPart::LoadKeypointsFromImgs(std::filesystem::path path_to_images, s
                         {
                             m_descriptors.push_back(descriptor_read);
                         }
+                        else
+                        {
+                            m_descriptors.push_back(cv::Mat());
+                        }
                     }
                 }
                 read_json.release();
@@ -518,13 +528,16 @@ void AssemblyPart::LoadKeypointsFromImgs(std::filesystem::path path_to_images, s
 
                 for(size_t i = 0; i < 26; i++)       //for each side
                 {
-                   // if(i == 0 || i == 2 || i == 4 || i == 6 || i == 8 || i == 17)
                     {
                         cv::FileNode n2 = read_json[node_name + std::to_string(i)];
                         cv::read(n2, keypoints_read);
                         if(!keypoints_read.empty())
                         {
                             m_keypoints.push_back(keypoints_read);
+                        }
+                        else
+                        {
+                            m_keypoints.push_back(std::vector<cv::KeyPoint>());
                         }
                     }
                 }

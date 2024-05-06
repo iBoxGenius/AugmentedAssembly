@@ -16,7 +16,8 @@
 
 #include <Windows.h>
 
-constexpr size_t KP_MAX = 3500;
+//constexpr size_t KP_MAX = 2500;
+constexpr size_t KP_MAX = 10000;
 constexpr double KP_RETAIN = 0.9;
 constexpr int KP_RETAIN_BODER_SIZE = 20;
 

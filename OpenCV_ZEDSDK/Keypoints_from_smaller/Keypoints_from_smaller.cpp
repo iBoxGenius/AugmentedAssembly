@@ -63,7 +63,8 @@ void InitCamera(sl::Camera& zed)
 
 int main()
 {
-    std::string object_name = "object_0";                      ///     < ---------------------------------object name
+    std::string object_name = "object_3";                      ///     < ---------------------------------object name
+    unsigned cnt = 9;
     //sl::Camera zed;
     //InitCamera(zed);
 
@@ -89,9 +90,9 @@ int main()
     unsigned focus = 0;
    
     std::vector<cv::Mat> object_images;
-    object_images.reserve(6);
+    object_images.reserve(cnt);
 
-    for(size_t i = 0; i < 6; i++)
+    for(size_t i = 0; i < cnt; i++)
     {
         object_images.push_back(cv::imread(object_name + std::string("_") + std::to_string(i) + ".png", cv::IMREAD_GRAYSCALE));
         keypoints.clear();

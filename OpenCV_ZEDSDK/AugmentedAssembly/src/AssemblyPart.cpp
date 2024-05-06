@@ -3,7 +3,7 @@
 #include <omp.h>
 
 
-constexpr int KEYPOINTS = 0;
+constexpr int KEYPOINTS = 1;
 
 size_t AssemblyPart::iLiving = 0;
 size_t AssemblyPart::iTotal = 0;
@@ -185,6 +185,7 @@ void AssemblyPart::FindMatches(const cv::Mat& descriptor_scene, const std::vecto
     unsigned detected_cnt = 0;
     unsigned all_cnt = 0;
 
+
     while(true)
     {
         try
@@ -204,7 +205,8 @@ void AssemblyPart::FindMatches(const cv::Mat& descriptor_scene, const std::vecto
                     
                     all_cnt++;
                     
-                    //#pragma omp parallel for num_threads(1)
+
+                    
                     #pragma omp parallel for
                     for(int i = 0; i < m_matchers.size(); i++)
                     {
@@ -266,11 +268,11 @@ void AssemblyPart::FindMatches(const cv::Mat& descriptor_scene, const std::vecto
                             
                             if(KEYPOINTS == 1)
                             {
-                                static unsigned cnt = 0;
-                                cnt++;
-                                std::cout << cnt;
-                                std::cout << " [" << i << "] = " << "Keypoints == " << m_keypoints[i].size() << "   Good Matches == " << m_good_matches_filtered[i].size();
-                                std::cout << std::endl;
+                                //static unsigned cnt = 0;
+                                //cnt++;
+                                //std::cout << cnt;
+                                //std::cout << " [" << i << "] = " << "Keypoints == " << m_keypoints[i].size() << "   Good Matches == " << m_good_matches_filtered[i].size();
+                                //std::cout << std::endl;
                             }
                             
 
@@ -451,11 +453,24 @@ void AssemblyPart::FindMatches(const cv::Mat& descriptor_scene, const std::vecto
                         }
                     }// for each matcher
                     //#pragma omp barrier //synchronize all threads
-                    
+
                     end_time = std::chrono::high_resolution_clock::now();
                     dur = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time).count();
-                    std::cout << "Assembly Part " << iID  << "__Matching -> time elapsed:	" << dur << " ms" << std::endl;
-                    //std::cout << "-------------------------------------------------------------" << std::endl;
+                    //std::cout << "Assembly Part " << iID  << "__Matching -> time elapsed:	" << dur <<  std::endl;
+                    
+                    /*
+                    //if(iID == 2)
+                    {
+                        static int i = 0;
+                        i++;
+                        std::cout << dur << "," << std::endl;
+                        if(i == 100)
+                        {
+                            std::cout << "-------------------------------------------------------------" << std::endl;
+                        }
+                    }
+                    */
+                    
                     {
                         std::unique_lock<std::mutex> lk(m_mutex);
                         m_new_kp_rq = true;

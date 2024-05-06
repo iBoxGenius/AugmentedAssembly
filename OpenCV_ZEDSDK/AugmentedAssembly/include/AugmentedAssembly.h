@@ -24,12 +24,17 @@
 class AugmentedAssembly {
 
 public:
-    AugmentedAssembly();                    // Default constructor
-    ~AugmentedAssembly();                   // Destructor
+    __declspec(dllexport) AugmentedAssembly();                    // Default constructor
+    __declspec(dllexport) ~AugmentedAssembly();                   // Destructor
 
-    void Start();
+    char* GetLeftFrame();
+    char* GetRightFrame();
+    __declspec(dllexport) void Start();
 
+    int m_keypoints_size = 5;
 private:
+
+
     const Method m_method = Method::BRISK;
     unsigned m_parts_cnt = 0;
 

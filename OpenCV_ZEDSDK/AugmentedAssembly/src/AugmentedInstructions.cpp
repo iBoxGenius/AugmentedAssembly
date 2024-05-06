@@ -1,14 +1,23 @@
 #include "AugmentedInstructions.h"
 
+#include <omp.h>
+
+
 AugmentedInstructions* AugmentedInstructions::this_ptr = nullptr;
 
-AugmentedInstructions::AugmentedInstructions(std::vector<std::vector<std::vector<cv::Point>>>& corners, cv::Mat& camera_image, std::mutex& mutex, AssemblyStates& assembly_state, std::vector<unsigned>& step_indices, unsigned& parts_cnt):
-	m_corners(corners), m_image_camera(camera_image), m_mutex(mutex), m_assembly_state(assembly_state), m_step_indices(step_indices), m_parts_cnt(parts_cnt), m_timer_duration_ms(5000), m_detected_max(25),//m_detected_max(25)
+AugmentedInstructions::AugmentedInstructions(std::vector<std::vector<std::vector<cv::Point>>>& corners, cv::Mat& camera_image_left, cv::Mat& camera_image_right,std::mutex& mutex, AssemblyStates& assembly_state, std::vector<unsigned>& step_indices, unsigned& parts_cnt, int& keypoints_size):
+	m_corners(corners), m_image_camera_left(camera_image_left), m_image_camera_right(camera_image_right), m_mutex(mutex), m_assembly_state(assembly_state), m_step_indices(step_indices), m_parts_cnt(parts_cnt), m_timer_duration_ms(5000), m_detected_max(99999),//m_detected_max(25)
 	m_object_step_properties(2, { {std::vector<std::vector<AugmentedInstructions::Sides>>(2, std::vector<AugmentedInstructions::Sides>(2))}, {std::vector<std::vector<unsigned>>(2, std::vector<unsigned>(2))} }),
-	m_blink_sides(2)
+	m_blink_sides(2), m_keypoints_size(keypoints_size)
 {
 	m_sides_to_match = std::vector<AugmentedInstructions::Sides>(2);	//2 sides to connect
 	SetThisPtr(this);
+
+	m_image_left_unity = std::make_unique<char[]>(1280 * 720 * 4);
+	m_image_right_unity = std::make_unique<char[]>(1280 * 720 * 4);
+
+	//std::cout << omp_get_max_threads() << std::endl;
+	//omp_set_num_threads((omp_get_max_threads() - 4) / 2);
 }
 
 
@@ -119,14 +128,13 @@ void AugmentedInstructions::StartInstructions()
 	auto start_time = std::chrono::high_resolution_clock::now();
 	auto dur = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time).count();
 
-
 	SetAssemblyIndices();
 
 	m_timer_fps_id = SetTimer(NULL, 4, 1000, (TIMERPROC)AugmentedInstructions::TimerFpsStatic);
 	while(true)
 	{
 		start_time = std::chrono::high_resolution_clock::now();
-		m_image_camera.copyTo(m_image_text_video);
+		m_image_camera_left.copyTo(m_image_text_video);
 		InsertAnimation();
 		m_image_text_video.copyTo(m_image_show);
 		DrawInstructions();
@@ -142,7 +150,7 @@ void AugmentedInstructions::StartInstructions()
 
 void AugmentedInstructions::DrawInstructions()
 {
-	if(!m_image_camera.empty())
+	if(!m_image_camera_left.empty())
 	{
 		for(auto& part_idx : m_step_indices)
 		{
@@ -266,6 +274,29 @@ void AugmentedInstructions::InsertAnimation()
 		cv::cvtColor(video_frame, video_frame, cv::COLOR_BGR2BGRA);
 		video_frame.copyTo(m_image_text_video(cv::Rect(m_image_text_video.cols - video_frame.cols, 0, video_frame.cols, video_frame.rows)));
 	}
+
+
+	unsigned current_step = 0;
+	cv::Point text_org(20, 50);
+	double font_scale = 1.2;
+	cv::Scalar colour(0, 255, 0);
+	int thickness = 4;
+
+	static int mem = 0;
+
+
+	if(m_keypoints_size != 0)
+	{
+		mem = m_keypoints_size;
+	}
+
+	if(m_keypoints_size == 0)
+	{
+		m_keypoints_size = mem;
+	}
+
+	cv::putText(m_image_text_video, "KPs: " + std::to_string(m_keypoints_size), cv::Point(1065, 350), cv::FONT_HERSHEY_SIMPLEX, font_scale, cv::Scalar(0, 0, 255), thickness);
+
 }
 
 void AugmentedInstructions::InsertText()
@@ -279,7 +310,7 @@ void AugmentedInstructions::InsertText()
 	{
 		case AssemblyStates::AssemblyStart:
 			current_step = 0;
-			cv::putText(m_image_show, m_written_instructions[current_step], text_org, cv::FONT_HERSHEY_SIMPLEX, font_scale, colour, thickness);
+			//cv::putText(m_image_show, m_written_instructions[current_step], text_org, cv::FONT_HERSHEY_SIMPLEX, font_scale, colour, thickness);
 			break;
 		case AssemblyStates::AssemblyStep:
 			current_step = m_steps_current_step;
@@ -291,7 +322,11 @@ void AugmentedInstructions::InsertText()
 			break;
 		default:
 			break;
-		}
+	}
+
+
+	//std::cout << m_keypoints_size << std::endl;
+
 
 }
 
@@ -752,6 +787,12 @@ bool AugmentedInstructions::AreSidesClose()
 	{
 		cv::Point c0, c1;
 		double angle_1, angle_2;
+
+		m_center = cv::Point(-100, -100);
+		m_pt1 = cv::Point(-100, -100);
+		m_pt2 = cv::Point(-100, -100);
+		m_pt3 = cv::Point(-100, -100);
+		m_pt4 = cv::Point(-100, -100);
 		
 		CalculateCenter(0, c0);	//component 0
 		CalculateCenter(1, c1); //component 1
@@ -1038,4 +1079,30 @@ void AugmentedInstructions::CheckForNewState()
 		}
 	}
 }
+
+
+char* AugmentedInstructions::GetLeftFrame()
+{
+	if(m_image_camera_left.empty() || !m_image_camera_left.isContinuous())
+	{
+		return nullptr;
+	}
+
+	memcpy(m_image_left_unity.get(), m_image_camera_left.data, m_image_camera_left.total() * m_image_camera_left.elemSize());
+
+	return m_image_left_unity.get();
+}
+
+char* AugmentedInstructions::GetRigthFrame()
+{
+	if(m_image_camera_right.empty() || !m_image_camera_right.isContinuous())
+	{
+		return nullptr;
+	}
+
+	memcpy(m_image_right_unity.get(), m_image_camera_right.data, m_image_camera_right.total() * m_image_camera_right.elemSize());
+
+	return m_image_right_unity.get();
+}
+
 

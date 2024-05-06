@@ -80,9 +80,10 @@ int main()
     cv::Mat demonstration_frame;
 
     //cv::Ptr<cv::BRISK> detector_brisk = cv::BRISK::create(60, 5, 1.0f);
-    cv::Ptr<cv::BRISK> detector_brisk = cv::BRISK::create();
-    cv::Ptr<cv::ORB> detector_orb = cv::ORB::create();
-    cv::Ptr<cv::SIFT> detector_sift = cv::SIFT::create();
+    cv::Ptr<cv::BRISK> detector_brisk = cv::BRISK::create(5000);
+    cv::Ptr<cv::ORB> detector_orb = cv::ORB::create(5000);
+    detector_orb->setPatchSize(64);
+    cv::Ptr<cv::SIFT> detector_sift = cv::SIFT::create(2000);
     cv::Ptr<cv::AKAZE> detector_akaze = cv::AKAZE::create();
     cv::Ptr<cv::AKAZE> detector_kaze = cv::AKAZE::create();
     cv::Ptr<cv::MSER> detector_mser = cv::MSER::create();
@@ -138,9 +139,9 @@ int main()
         demonstration_frame = cv_frame.clone();
         start_time = std::chrono::high_resolution_clock::now();
 
-        detector_brisk->detectAndCompute(demonstration_frame, cv::noArray(), keypoints, descriptor, false);
+        //detector_brisk->detectAndCompute(demonstration_frame, cv::noArray(), keypoints, descriptor, false);
         //detector_sift->detectAndCompute(demonstration_frame, cv::noArray(), keypoints, descriptor, false);
-        //detector_orb->detectAndCompute(demonstration_frame, cv::noArray(), keypoints, descriptor, false);
+        detector_orb->detectAndCompute(demonstration_frame, cv::noArray(), keypoints, descriptor, false);
         //detector_akaze->detectAndCompute(demonstration_frame, cv::noArray(), keypoints, descriptor, false);
         //detector_kaze->detectAndCompute(demonstration_frame, cv::noArray(), keypoints, descriptor, false);
         
@@ -153,7 +154,14 @@ int main()
 
         end_time = std::chrono::high_resolution_clock::now();
         dur = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time).count();
-        std::cout << "Detector: " << dur << "ms" << "\t" << descriptor.size() << std::endl;
+        static unsigned cnt = 0;
+        cnt++;
+        std::cout << cnt <<"  Detector: " << dur << "ms" << "\t" << descriptor.size() << std::endl;
+        std::cout << dur << "," << std::endl;
+        if(cnt == 100)
+        {
+            std::cout << "------------------------" << std::endl;
+        }
 
         cv::drawKeypoints(demonstration_frame, keypoints, demonstration_frame);
         keypoints.clear();
@@ -180,7 +188,7 @@ int main()
 
             /*********************************  Writing the descriptor    *******************************************************/
             
-            std::string object_name = "object_0";
+            std::string object_name = "object_3";
             cv::FileStorage store_desc(("descriptor_" + object_name + ".json"), cv::FileStorage::APPEND);
             cv::write(store_desc, desc_name + std::to_string(desc_iter), descriptor);
             store_desc.release();

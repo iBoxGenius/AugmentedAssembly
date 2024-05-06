@@ -2,6 +2,34 @@
 #include "AugmentedAssembly.h"
 
 
+/*
+void recreateImageFromCharArray(const char* charArray, int width, int height, int channels)
+{
+	if(!charArray)
+	{
+		std::cout << "No Image" << std::endl;
+		return;
+	}
+
+	cv::Mat image(height, width, CV_8UC3); // Create an empty image
+
+	// Copy data from char array to the image matrix
+	int index = 0;
+	for(int y = 0; y < height; ++y) {
+		for(int x = 0; x < width; ++x) {
+			for(int c = 0; c < channels; ++c) {
+				image.at<cv::Vec3b>(y, x)[c] = charArray[index++];
+			}
+		}
+	}
+
+	// Display the image
+	cv::imshow("Recreated Image", image);
+	cv::waitKey(10);
+}
+*/
+
+
 void AugmentedAssembly::GetNumberOfParts(std::filesystem::path path_to_parts)
 {
 	for(auto& p : std::filesystem::directory_iterator(path_to_parts))
@@ -14,7 +42,7 @@ void AugmentedAssembly::GetNumberOfParts(std::filesystem::path path_to_parts)
 
 AugmentedAssembly::AugmentedAssembly(): m_zed(m_grabbed_frame_left_SL, m_grabbed_frame_right_SL, m_mutex),
 										m_detector(m_method, m_detector_frame_MAT_new, m_mutex_detector, m_detector_new_frame_rq), m_detector_new_frame_rq(true),
-										m_instructions(m_scene_corners, m_grabbed_frame_left_MAT, m_mutex_instructions, m_assembly_state, m_step_indices, m_parts_cnt)
+										m_instructions(m_scene_corners, m_grabbed_frame_left_MAT, m_grabbed_frame_right_MAT, m_mutex_instructions, m_assembly_state, m_step_indices, m_parts_cnt, m_keypoints_size)
 {										
 	auto camera_ret_state = m_zed.GetCameraState();
 	if(camera_ret_state  != sl::ERROR_CODE::SUCCESS)
@@ -153,6 +181,7 @@ void AugmentedAssembly::Start()
 		while(true)
 		{
 			start_time_loop = std::chrono::high_resolution_clock::now();
+			m_keypoints_size = m_keypoints_scene.size();
 
 			try
 			{
@@ -175,6 +204,8 @@ void AugmentedAssembly::Start()
 				m_mutex_detector.lock();
 				detector_requested = m_detector_new_frame_rq.load(std::memory_order_acquire);
 				m_mutex_detector.unlock();
+
+				//recreateImageFromCharArray(m_instructions.GetLeftFrame(), 1280, 720, 4);
 
 				if(detector_requested && !m_grabbed_frame_left_MAT.empty())									//detector finished 
 				{
@@ -330,6 +361,26 @@ AugmentedAssembly::~AugmentedAssembly()
 			}
 		}
 	}
+}
+
+
+char* AugmentedAssembly::GetLeftFrame()
+{
+	return m_instructions.GetLeftFrame();
+}
+
+char* AugmentedAssembly::GetRightFrame()
+{
+	return m_instructions.GetRigthFrame();
+}
+
+extern "C"
+{
+	__declspec(dllexport) AugmentedAssembly* AugmentedAssembly_Create() { return new AugmentedAssembly();}
+	__declspec(dllexport) void AugmentedAssembly_Start(AugmentedAssembly* ptr) { ptr->Start(); }
+	__declspec(dllexport) char* AugmentedAssembly_LeftFrame(AugmentedAssembly* ptr) { return ptr->GetLeftFrame(); }
+	__declspec(dllexport) char* AugmentedAssembly_RightFrame(AugmentedAssembly* ptr) { return ptr->GetRightFrame(); }
+	__declspec(dllexport) void AugmentedAssembly_Delete(AugmentedAssembly* ptr) { delete ptr; }
 }
 
 

@@ -18,14 +18,3 @@ DescriptorsDataset
 	
 	Malo by sa to takto robiť, že sa detekujú body iba z vyrezaného obrázku. Tým pádom sa nedetekujú hranice (shape) objektu ako významné body,
 		ale naopak sa tým eliminuje vplyv pozadia na významné body hranice. (počítajú sa z okolia a teda pozadie ovplyvní 'response' významného bodu)
-	
-AssemblyPart
-	plávajúci priemer rohov
-	pridať časovač na počet detekcíí za sekundu
-	zmerať priemerný čas 'Matcher for' - s OpenMP a bez
-	
-Eval
-	latencia
-	IoU/reprojection errror pre položený objekt, 100 detekcií
-	VTune obrázok vlákien ako idú
-	

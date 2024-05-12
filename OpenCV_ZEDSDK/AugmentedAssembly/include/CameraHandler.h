@@ -16,7 +16,7 @@ public:
     sl::ERROR_CODE GetCameraState();
 
     //used in a thread
-    void Start();
+    void StartCamera();
 
     void SetMatForDetectorSL(sl::Mat& camera_frame);
     void SetWantNewFrameFlag();

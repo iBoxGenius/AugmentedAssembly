@@ -165,12 +165,11 @@ void AssemblyPart::FindMatches(const cv::Mat& descriptor_scene, const std::vecto
     bool request_not_fullfiled = true;
     cv::Ptr<cv::DescriptorMatcher> m_matcher_brisk = cv::DescriptorMatcher::create(cv::DescriptorMatcher::BRUTEFORCE_HAMMING);
 
-    /*
+    
     HANDLE hThread = GetCurrentThread();
-	SetThreadAffinityMask(hThread, iID + 4);
-	SetThreadPriority(hThread, THREAD_PRIORITY_HIGHEST);
-	CloseHandle(hThread);
-    */
+    SetThreadPriority(hThread, THREAD_PRIORITY_TIME_CRITICAL);
+    CloseHandle(hThread);
+    
 
     auto end_time = std::chrono::high_resolution_clock::now();
     auto start_time = std::chrono::high_resolution_clock::now();

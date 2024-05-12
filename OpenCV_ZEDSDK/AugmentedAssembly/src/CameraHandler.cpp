@@ -51,7 +51,7 @@ sl::ERROR_CODE CameraHandler::GetCameraState()
 
 
 
-void CameraHandler::Start()
+void CameraHandler::StartCamera()
 {
     while(true)
     {
@@ -62,16 +62,6 @@ void CameraHandler::Start()
             {
                 m_zed.retrieveImage(m_grabbed_frame_left, sl::VIEW::LEFT, sl::MEM::CPU);
                 m_zed.retrieveImage(m_grabbed_frame_right, sl::VIEW::RIGHT, sl::MEM::CPU);
-                /*
-                float min, max;
-                sl::Mat depth;
-                //m_zed.getCurrentMinMaxDepth(min, max);
-                m_zed.retrieveMeasure(depth, sl::MEASURE::DEPTH);
-                depth.copyTo(m_grabbed_frame_right);
-                */
-                
-                //std::cout << "Min: " << min << std::endl;
-                //std::cout << "Max: " << max << std::endl;
             }
             {
                 std::unique_lock<std::shared_mutex> lock(m_mutex);

@@ -47,8 +47,8 @@ void Detector::DetectCompute(cv::Mat mask, CV_OUT std::vector<cv::KeyPoint>& key
 
 	
 	HANDLE hThread = GetCurrentThread();
-	//SetThreadAffinityMask(hThread, 3);
-	//SetThreadPriority(hThread, THREAD_PRIORITY_HIGHEST);
+	//SetThreadAffinityMask(hThread, 4);
+	SetThreadPriority(hThread, THREAD_PRIORITY_TIME_CRITICAL);
 	CloseHandle(hThread);
 	
 
@@ -121,9 +121,16 @@ void Detector::DetectCompute(cv::Mat mask, CV_OUT std::vector<cv::KeyPoint>& key
 					m_new_frame_rq.store(true, std::memory_order_release);	//notify AugmentedAssembly object about a new request
 					m_mutex.unlock();
 					*/
+					static int cnt = 0;
+					cnt++;
 					end_time_loop = std::chrono::high_resolution_clock::now();
 					dur_loop = std::chrono::duration_cast<std::chrono::milliseconds>(end_time_loop - start_time_loop).count();
 					//std::cout << "Detector: "<< dur_loop << "ms" << "\t" << descriptors.size() << std::endl;
+					std::cout << dur_loop << "," << std::endl;
+					if(cnt >= 100)
+					{
+						std::cout << "------------------------" << std::endl;
+					}
 				}
 			}
 

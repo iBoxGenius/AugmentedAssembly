@@ -17,19 +17,16 @@
 #include <Windows.h>
 
 //constexpr size_t KP_MAX = 2500;
-constexpr size_t KP_MAX = 10000;
+constexpr size_t KP_MAX = 4000;
 constexpr double KP_RETAIN = 0.9;
 constexpr int KP_RETAIN_BODER_SIZE = 20;
 
 class Detector {
 public:
     Detector(Method method, cv::Mat & camera_frame, std::mutex& mutex, std::atomic<bool>& sync_var);
-    //Detector(Method method, cv::Mat& camera_frame);
-    ~Detector();                // Destructor
-
+    ~Detector();
     //used in a thread
     void DetectCompute(cv::Mat mask, CV_OUT std::vector < cv::KeyPoint > & keypoints, cv::Mat& descriptors);
-
     void SetMatForCameraSL(cv::Mat& camera_frame);
     int GetDescriptorSize();
 

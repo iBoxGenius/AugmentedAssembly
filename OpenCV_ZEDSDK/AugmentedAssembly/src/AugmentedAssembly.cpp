@@ -1,35 +1,6 @@
 
 #include "AugmentedAssembly.h"
 
-
-/*
-void recreateImageFromCharArray(const char* charArray, int width, int height, int channels)
-{
-	if(!charArray)
-	{
-		std::cout << "No Image" << std::endl;
-		return;
-	}
-
-	cv::Mat image(height, width, CV_8UC3); // Create an empty image
-
-	// Copy data from char array to the image matrix
-	int index = 0;
-	for(int y = 0; y < height; ++y) {
-		for(int x = 0; x < width; ++x) {
-			for(int c = 0; c < channels; ++c) {
-				image.at<cv::Vec3b>(y, x)[c] = charArray[index++];
-			}
-		}
-	}
-
-	// Display the image
-	cv::imshow("Recreated Image", image);
-	cv::waitKey(10);
-}
-*/
-
-
 void AugmentedAssembly::GetNumberOfParts(std::filesystem::path path_to_parts)
 {
 	for(auto& p : std::filesystem::directory_iterator(path_to_parts))
@@ -38,7 +9,6 @@ void AugmentedAssembly::GetNumberOfParts(std::filesystem::path path_to_parts)
 		m_parts_cnt++;
 	}
 }
-
 
 AugmentedAssembly::AugmentedAssembly(): m_zed(m_grabbed_frame_left_SL, m_grabbed_frame_right_SL, m_mutex),
 										m_detector(m_method, m_detector_frame_MAT_new, m_mutex_detector, m_detector_new_frame_rq), m_detector_new_frame_rq(true),
@@ -156,7 +126,7 @@ void AugmentedAssembly::Start()
 {
 	if(m_zed.GetCameraState() == sl::ERROR_CODE::SUCCESS)
 	{
-		thread_camera = std::thread(&CameraHandler::Start, std::ref(m_zed));
+		thread_camera = std::thread(&CameraHandler::StartCamera, std::ref(m_zed));
 		thread_detector = std::thread(&Detector::DetectCompute, std::ref(m_detector), cv::Mat(), std::ref(m_keypoints_scene), std::ref(m_descriptor_scene));
 
 
@@ -296,11 +266,11 @@ void AugmentedAssembly::Start()
 					keypoints_show = m_keypoints_scene;
 					cv::Mat img_matches;
 				
-					/*
+					
 					cv::drawKeypoints(keypoints_image_show, keypoints_show, keypoints_image_show);
 					cv::imshow("Keypoints", keypoints_image_show);
 					cv::waitKey(5);
-					*/
+					
 					keypoints_show.clear();
 					/********************************************************************************************************************/
 

@@ -194,27 +194,6 @@ void AugmentedInstructions::DrawInstructions()
 					{
 						continue;
 					}
-
-
-
-
-					/*	Oclusion TEST
-					cv::line(m_image_show, cv::Point(488, 503), cv::Point(736, 496), cv::Scalar(0, 255, 0), 2);
-					cv::line(m_image_show, cv::Point(736, 496), cv::Point(740, 661), cv::Scalar(0, 255, 0), 2);
-					cv::line(m_image_show, cv::Point(740, 661), cv::Point(492, 668), cv::Scalar(0, 255, 0), 2);
-					cv::line(m_image_show, cv::Point(492, 668), cv::Point(488, 503), cv::Scalar(0, 255, 0), 2);
-					*/
-
-
-
-					
-
-					/*
-					cv::line(DEMONSTRATION_FRAME_RIGHT, m_corners[part_idx][j][0], m_corners[part_idx][j][1], cv::Scalar(0, 255, 0), 2);
-					cv::line(DEMONSTRATION_FRAME_RIGHT, m_corners[part_idx][j][1], m_corners[part_idx][j][2], cv::Scalar(0, 255, 0), 2);
-					cv::line(DEMONSTRATION_FRAME_RIGHT, m_corners[part_idx][j][2], m_corners[part_idx][j][3], cv::Scalar(0, 255, 0), 2);
-					cv::line(DEMONSTRATION_FRAME_RIGHT, m_corners[part_idx][j][3], m_corners[part_idx][j][0], cv::Scalar(0, 255, 0), 2);
-					*/
 				}
 			}
 
@@ -222,11 +201,7 @@ void AugmentedInstructions::DrawInstructions()
 			{
 				cv::imshow("DEMONSTRATION_LEFT", m_image_show);
 				//cv::imshow("DEMONSTRATION_RIGHT", DEMONSTRATION_FRAME_RIGHT);
-				//if(m_first_run)
-				//{
-					cv::waitKey(5);
-				//	m_first_run = false;
-				//}
+				cv::waitKey(5);
 				m_fps++;
 			}
 		}
@@ -310,7 +285,7 @@ void AugmentedInstructions::InsertText()
 	{
 		case AssemblyStates::AssemblyStart:
 			current_step = 0;
-			//cv::putText(m_image_show, m_written_instructions[current_step], text_org, cv::FONT_HERSHEY_SIMPLEX, font_scale, colour, thickness);
+			cv::putText(m_image_show, m_written_instructions[current_step], text_org, cv::FONT_HERSHEY_SIMPLEX, font_scale, colour, thickness);
 			break;
 		case AssemblyStates::AssemblyStep:
 			current_step = m_steps_current_step;
@@ -514,11 +489,7 @@ bool AugmentedInstructions::HasStateChanged()
 
 void AugmentedInstructions::DrawLabel(const std::vector<cv::Point>& corners, const unsigned index)
 {
-	/*
-	* Change so the label has a direct relationship with the 'corners' instead of the BB.
-	*/
 	auto r = cv::boundingRect(corners);
-	//cv::rectangle(m_image_show, r, cv::Scalar(0, 255, 0), 2);
 	cv::Point text_org(r.x, r.y - 20);
 	double font_scale = 1.2;
 	cv::Scalar colour(0, 0, 255);
@@ -806,15 +777,14 @@ bool AugmentedInstructions::AreSidesClose()
 		}
 		
 		IsInsideSlice(c0, c1, 1);
-		if(c0.x > 0 && c0.y > 0 && c1.x > 0 && c1.y > 0)											//if there is a center
+		if(c0.x > 0 && c0.y > 0 && c1.x > 0 && c1.y > 0)		//if there is a center
 		{
-			if(IsAngleOk(angle_1, angle_2))												//if the angles are correct
+			if(IsAngleOk(angle_1, angle_2))						//if the angles are correct
 			{
 				if(IsInsideComponent(c0, 1))					//if center of component 0 is inside the component 1
 				{
 					if(IsInsideSlice(c0, c1, 1))				//if it is inside the slice of the component 1
 					{
-						//std::cout << "C0 Angle: " << angle_1 << "°   C1 = Angle: " << angle_2 << std::endl;
 						return true;
 					}
 				}
@@ -839,14 +809,6 @@ void AugmentedInstructions::SetAssemblyIndices()
 		//m_step_indices.push_back(3);
 		//m_step_indices.push_back(4);
 
-		
-
-		/*
-		m_step_indices.push_back(1);
-		m_step_indices.push_back(2);
-		m_step_indices.push_back(3);
-		*/
-
 		break;
 	case AssemblyStates::AssemblyStep:
 		m_step_indices.clear();
@@ -856,7 +818,6 @@ void AugmentedInstructions::SetAssemblyIndices()
 		{
 			m_step_indices.push_back(1);
 			m_step_indices.push_back(2);
-			//m_step_indices.push_back(3);
 
 			m_sides_to_match.push_back(Sides::Top);
 			m_sides_to_match.push_back(Sides::Bottom);
@@ -866,7 +827,6 @@ void AugmentedInstructions::SetAssemblyIndices()
 		{
 			m_step_indices.push_back(0);
 			m_step_indices.push_back(3);
-			//m_step_indices.push_back(4);
 
 			m_sides_to_match.push_back(Sides::Top);
 			m_sides_to_match.push_back(Sides::Bottom);
@@ -879,8 +839,6 @@ void AugmentedInstructions::SetAssemblyIndices()
 
 		if(m_steps_current_step == 1)
 		{
-			//m_step_indices.push_back(1);
-			//m_step_indices.push_back(2);
 			m_step_indices.push_back(3);
 
 			m_sides_to_match.push_back(Sides::Top);
@@ -889,8 +847,6 @@ void AugmentedInstructions::SetAssemblyIndices()
 
 		if(m_steps_current_step == 2)
 		{
-			//m_step_indices.push_back(0);
-			//m_step_indices.push_back(3);
 			m_step_indices.push_back(4);
 
 			m_sides_to_match.push_back(Sides::Top);

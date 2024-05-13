@@ -19,7 +19,7 @@
 
 #include <chrono>
 
-
+constexpr int PRINT_AA = 0;
 
 class AugmentedAssembly {
 
@@ -27,13 +27,28 @@ public:
     __declspec(dllexport) AugmentedAssembly();                    // Default constructor
     __declspec(dllexport) ~AugmentedAssembly();                   // Destructor
 
-    char* GetLeftFrame();
-    char* GetRightFrame();
+    /**
+     * @brief Returns the left augmented frame as a char array
+     * 
+     * @return char array of the left augmented image
+     */
+    __declspec(dllexport) char* GetLeftFrame();
+
+    /**
+     * @brief Returns the right augmented frame as a char array
+     *
+     * @return char array of the right augmented image
+     */
+    __declspec(dllexport) char* GetRightFrame();
+
+    /**
+     * @brief Starts the whole application
+     * 
+     */
     __declspec(dllexport) void Start();
 
-    int m_keypoints_size = 5;
 private:
-
+    int m_keypoints_size = 0;
 
     const Method m_method = Method::BRISK;
     unsigned m_parts_cnt = 0;
@@ -41,8 +56,6 @@ private:
     AssemblyStates m_assembly_state = AssemblyStates::AssemblyStart;
     unsigned m_steps_cnt = 0;
     std::vector<unsigned> m_step_indices;
-    std::mutex m_mutex_instructions;
-    bool changed_state = true;
 
     // Private member variables
     sl::Mat m_grabbed_frame_left_SL;
@@ -50,21 +63,18 @@ private:
     cv::Mat m_grabbed_frame_left_MAT;
     cv::Mat m_grabbed_frame_right_MAT;
     cv::Mat m_detector_frame_MAT_new;
-    cv::Mat m_detector_frame_MAT_old;
 
     CameraHandler m_zed;
     Detector m_detector;
     AugmentedInstructions m_instructions;
-    /*
-    * Each assembly part will have its own matcher
-    * std::vector<AssemblyPart> assembly_parts;     -> each has an instance of Matcher class
-    *                                               
-    * AssemblyPart has a method which starts the matching process ==> thread function -> comparing based on the number of descriptors
-    *       AugmentedAssembly fires up the threads (by batches of x (== 4 ?))       //same handling logic as the Detector class, in terms of mutexes and atomic<bool>, cv::Mat reference
-    */
     std::vector<cv::DMatch> best_good_matches_filtered;
     std::vector<std::vector<std::vector<cv::Point>>> m_scene_corners;
 
+    /**
+     * @brief Based on the number of folders, calculates the number of parts
+     * 
+     * @param path_to_parts Absolute path to the objects' folders
+     */
     void GetNumberOfParts(std::filesystem::path path_to_parts);
     std::vector<AssemblyPart> m_assembly_parts;
     std::vector<std::thread> m_threads_parts;
@@ -86,7 +96,8 @@ private:
 
 
     // Mapping between sl::Mat and cv::Mat
-    inline cv::Mat slMat2cvMat(sl::Mat& input) {
+    inline cv::Mat slMat2cvMat(sl::Mat& input)
+    {
         int cv_type = -1;
         cv::Mat ret;
         switch(input.getDataType()) {

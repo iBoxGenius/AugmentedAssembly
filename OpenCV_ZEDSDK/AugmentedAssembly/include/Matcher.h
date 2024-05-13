@@ -15,23 +15,37 @@
 */
 class Matcher {
 public:
+
+    /**
+     * @brief Constructor
+     * 
+     * \param method Method for the descriptor/keypoints
+     * \param ratio_thresh Ratio for the ratio test
+     */
     Matcher(Method method, const float ratio_thresh);
     ~Matcher();                // Destructor
 
+    /**
+     * @brief Matches the object's side descriptor to the scene
+     * 
+     * \param descriptor_object
+     * \param descriptor_scene
+     * \param keypoints_scene
+     * \param good_matches_filtered [out]
+     */
     void Match(const cv::Mat& descriptor_object, const cv::Mat& descriptor_scene,
                const std::vector<cv::KeyPoint>& keypoints_scene, std::vector<cv::DMatch>& good_matches_filtered);
 
 private:
-    cv::Ptr<cv::DescriptorMatcher> m_matcher_sift;
-    cv::Ptr<cv::DescriptorMatcher> m_matcher_orb;
     cv::Ptr<cv::DescriptorMatcher> m_matcher_brisk;
     Method m_method;
-    //std::vector<cv::Mat> m_descriptor;
-    //std::vector<cv::DMatch> m_good_matches;
     const float m_ratio_thresh;
 
+    /**
+     * @brief Filters by the Lowe's test (ratio test)
+     * 
+     * \param knn_matches [in]
+     * \param good_matches [out]
+     */
     void FilterOutliersLoweTest(std::vector< std::vector<cv::DMatch>>& knn_matches, std::vector<cv::DMatch>& good_matches);
-    void DistanceFromCentroid(const std::vector<cv::Point2f>& points, cv::Point2f centroid, std::vector<double>& distances);
-    void FilterOutliersSpatial(const std::vector<cv::KeyPoint>& keypoints_scene, std::vector<cv::DMatch>& good_matches, std::vector<cv::DMatch>& good_matches_filtered);
-
 };

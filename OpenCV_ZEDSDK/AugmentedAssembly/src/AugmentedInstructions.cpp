@@ -5,19 +5,14 @@
 
 AugmentedInstructions* AugmentedInstructions::this_ptr = nullptr;
 
-AugmentedInstructions::AugmentedInstructions(std::vector<std::vector<std::vector<cv::Point>>>& corners, cv::Mat& camera_image_left, cv::Mat& camera_image_right,std::mutex& mutex, AssemblyStates& assembly_state, std::vector<unsigned>& step_indices, unsigned& parts_cnt, int& keypoints_size):
-	m_corners(corners), m_image_camera_left(camera_image_left), m_image_camera_right(camera_image_right), m_mutex(mutex), m_assembly_state(assembly_state), m_step_indices(step_indices), m_parts_cnt(parts_cnt), m_timer_duration_ms(5000), m_detected_max(99999),//m_detected_max(25)
+AugmentedInstructions::AugmentedInstructions(std::vector<std::vector<std::vector<cv::Point>>>& corners, cv::Mat& camera_image_left, cv::Mat& camera_image_right, AssemblyStates& assembly_state, std::vector<unsigned>& step_indices, unsigned& parts_cnt, int& keypoints_size):
+	m_corners(corners), m_image_camera_left(camera_image_left), m_image_camera_right(camera_image_right), m_assembly_state(assembly_state), m_step_indices(step_indices), m_parts_cnt(parts_cnt), m_timer_duration_ms(5000), m_detected_max(25),
 	m_object_step_properties(2, { {std::vector<std::vector<AugmentedInstructions::Sides>>(2, std::vector<AugmentedInstructions::Sides>(2))}, {std::vector<std::vector<unsigned>>(2, std::vector<unsigned>(2))} }),
 	m_blink_sides(2), m_keypoints_size(keypoints_size)
 {
-	m_sides_to_match = std::vector<AugmentedInstructions::Sides>(2);	//2 sides to connect
 	SetThisPtr(this);
-
 	m_image_left_unity = std::make_unique<char[]>(1280 * 720 * 4);
 	m_image_right_unity = std::make_unique<char[]>(1280 * 720 * 4);
-
-	//std::cout << omp_get_max_threads() << std::endl;
-	//omp_set_num_threads((omp_get_max_threads() - 4) / 2);
 }
 
 
@@ -54,9 +49,6 @@ void AugmentedInstructions::StartInstructions()
 	else
 	{
 		m_steps_cnt = (m_parts_cnt / 2);
-
-		//for - get idx of steps
-		//m_step_indices.push_back(3);
 	}
 
 	{
@@ -109,7 +101,7 @@ void AugmentedInstructions::StartInstructions()
 		/*************************** STEP 2 **************************************************/
 	}
 
-	for(size_t i = 0; i < m_steps_cnt + 2; i++)
+	for(size_t i = 0; i < m_steps_cnt + 2; i++)		//+2  ==> strat+finish
 	{
 		m_written_instructions.push_back(std::string());
 	}
@@ -129,7 +121,6 @@ void AugmentedInstructions::StartInstructions()
 	auto dur = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time).count();
 
 	SetAssemblyIndices();
-
 	m_timer_fps_id = SetTimer(NULL, 4, 1000, (TIMERPROC)AugmentedInstructions::TimerFpsStatic);
 	while(true)
 	{
@@ -139,13 +130,15 @@ void AugmentedInstructions::StartInstructions()
 		m_image_text_video.copyTo(m_image_show);
 		DrawInstructions();
 		CheckForNewState();
-		end_time = std::chrono::high_resolution_clock::now();
-		dur = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time).count();
-		//std::cout << "AssemblyInstructions duration: " << dur << " ms" << std::endl;
+
+		if(PRINT_INST == 1)
+		{
+			end_time = std::chrono::high_resolution_clock::now();
+			dur = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time).count();
+			std::cout << "AssemblyInstructions duration: " << dur << " ms" << std::endl;
+		}
 	}
-
 }
-
 
 
 void AugmentedInstructions::DrawInstructions()
@@ -200,7 +193,7 @@ void AugmentedInstructions::DrawInstructions()
 			if(!m_image_show.empty())
 			{
 				cv::imshow("DEMONSTRATION_LEFT", m_image_show);
-				//cv::imshow("DEMONSTRATION_RIGHT", DEMONSTRATION_FRAME_RIGHT);
+				cv::imshow("DEMONSTRATION_RIGHT", m_image_camera_right);
 				cv::waitKey(5);
 				m_fps++;
 			}
@@ -270,7 +263,10 @@ void AugmentedInstructions::InsertAnimation()
 		m_keypoints_size = mem;
 	}
 
-	cv::putText(m_image_text_video, "KPs: " + std::to_string(m_keypoints_size), cv::Point(1065, 350), cv::FONT_HERSHEY_SIMPLEX, font_scale, cv::Scalar(0, 0, 255), thickness);
+	if(PRINT_INST == 1)
+	{
+		cv::putText(m_image_text_video, "KPs: " + std::to_string(m_keypoints_size), cv::Point(1065, 350), cv::FONT_HERSHEY_SIMPLEX, font_scale, cv::Scalar(0, 0, 255), thickness);
+	}
 
 }
 
@@ -298,11 +294,6 @@ void AugmentedInstructions::InsertText()
 		default:
 			break;
 	}
-
-
-	//std::cout << m_keypoints_size << std::endl;
-
-
 }
 
 
@@ -353,7 +344,6 @@ void AugmentedInstructions::DetermineCorrectPlanes()
 					if(pt != cv::Point(0, 0))
 					{
 						visible_idx_desired = plane_connection[1];
-						//connectable_planes = &plane_connection;
 						m_blink_sides[0].connectable_planes = &plane_connection;
 						m_blink_sides[1].connectable_planes = &plane_connection;
 					}
@@ -476,17 +466,6 @@ void AugmentedInstructions::BlinkCallback(unsigned which_timer)
 }
 
 
-bool AugmentedInstructions::HasStateChanged()
-{
-	if(m_changed_state_for_main)
-	{
-		m_changed_state_for_main = false;
-		return true;
-	}
-	return false;
-}
-
-
 void AugmentedInstructions::DrawLabel(const std::vector<cv::Point>& corners, const unsigned index)
 {
 	auto r = cv::boundingRect(corners);
@@ -537,17 +516,23 @@ void AugmentedInstructions::CalculateCenter(const unsigned which_step_component,
 			break;
 
 		case Sides::Right:
-
+			center.x = (m_corners[m_step_indices[which_step_component]][which_plane][1].x + m_corners[m_step_indices[which_step_component]][which_plane][2].x) / 2;
+			center.y = (m_corners[m_step_indices[which_step_component]][which_plane][1].y + m_corners[m_step_indices[which_step_component]][which_plane][2].y) / 2;
 			break;
+
 		case Sides::Bottom:
 			center.x = (m_corners[m_step_indices[which_step_component]][which_plane][3].x + m_corners[m_step_indices[which_step_component]][which_plane][2].x) / 2;
 			center.y = (m_corners[m_step_indices[which_step_component]][which_plane][3].y + m_corners[m_step_indices[which_step_component]][which_plane][2].y) / 2;
 			break;
 
 		case Sides::Left:
+			center.x = (m_corners[m_step_indices[which_step_component]][which_plane][3].x + m_corners[m_step_indices[which_step_component]][which_plane][0].x) / 2;
+			center.y = (m_corners[m_step_indices[which_step_component]][which_plane][3].y + m_corners[m_step_indices[which_step_component]][which_plane][0].y) / 2;
 
 			break;
 		default:
+			center.x = 0;
+			center.y = 0;
 			break;
 		}
 	}
@@ -599,6 +584,10 @@ void AugmentedInstructions::CalculateAngle(const unsigned& which_step_component,
 
 			break;
 		case Sides::Right:
+			delta_x = abs(m_corners[m_step_indices[which_step_component]][which_plane][1].x - m_corners[m_step_indices[which_step_component]][which_plane][2].x);
+			delta_y = abs(m_corners[m_step_indices[which_step_component]][which_plane][1].y - m_corners[m_step_indices[which_step_component]][which_plane][2].y);
+			angle_rad = atan2(delta_x, delta_y);
+			angle = angle_rad * 180.0 / CV_PI;
 
 			break;
 		case Sides::Bottom:
@@ -611,6 +600,10 @@ void AugmentedInstructions::CalculateAngle(const unsigned& which_step_component,
 
 			break;
 		case Sides::Left:
+			delta_x = abs(m_corners[m_step_indices[which_step_component]][which_plane][3].x - m_corners[m_step_indices[which_step_component]][which_plane][0].x);
+			delta_y = abs(m_corners[m_step_indices[which_step_component]][which_plane][3].y - m_corners[m_step_indices[which_step_component]][which_plane][0].y);
+			angle_rad = atan2(delta_x, delta_y);
+			angle = angle_rad * 180.0 / CV_PI;
 
 			break;
 		default:
@@ -695,23 +688,29 @@ bool AugmentedInstructions::IsInsideSlice(const cv::Point& center_to_test, const
 		switch(m_object_step_properties[current_step].sides_to_match[which_side][which_step_component])
 		{
 		case Sides::Top:
-
 			pp_1 = center_from + percentage * (m_corners[m_step_indices[which_step_component]][which_plane][1] - center_from);
 			pp_2 = center_from + percentage * (m_corners[m_step_indices[which_step_component]][which_plane][0] - center_from);
 			delta_2x = m_corners[m_step_indices[which_step_component]][which_plane][1].x - m_corners[m_step_indices[which_step_component]][which_plane][0].x;
 			delta_2y = m_corners[m_step_indices[which_step_component]][which_plane][1].y - m_corners[m_step_indices[which_step_component]][which_plane][0].y;
 			break;
 		case Sides::Right:
+			pp_1 = center_from + percentage * (m_corners[m_step_indices[which_step_component]][which_plane][1] - center_from);
+			pp_2 = center_from + percentage * (m_corners[m_step_indices[which_step_component]][which_plane][2] - center_from);
+			delta_2x = m_corners[m_step_indices[which_step_component]][which_plane][1].x - m_corners[m_step_indices[which_step_component]][which_plane][2].x;
+			delta_2y = m_corners[m_step_indices[which_step_component]][which_plane][1].y - m_corners[m_step_indices[which_step_component]][which_plane][2].y;
 
 			break;
 		case Sides::Bottom:
-
 			pp_1 = center_from + percentage * (m_corners[m_step_indices[which_step_component]][which_plane][3] - center_from);
 			pp_2 = center_from + percentage * (m_corners[m_step_indices[which_step_component]][which_plane][2] - center_from);
 			delta_2x = m_corners[m_step_indices[which_step_component]][which_plane][3].x - m_corners[m_step_indices[which_step_component]][which_plane][2].x;
 			delta_2y = m_corners[m_step_indices[which_step_component]][which_plane][3].y - m_corners[m_step_indices[which_step_component]][which_plane][2].y;
 			break;
 		case Sides::Left:
+			pp_1 = center_from + percentage * (m_corners[m_step_indices[which_step_component]][which_plane][3] - center_from);
+			pp_2 = center_from + percentage * (m_corners[m_step_indices[which_step_component]][which_plane][0] - center_from);
+			delta_2x = m_corners[m_step_indices[which_step_component]][which_plane][3].x - m_corners[m_step_indices[which_step_component]][which_plane][0].x;
+			delta_2y = m_corners[m_step_indices[which_step_component]][which_plane][3].y - m_corners[m_step_indices[which_step_component]][which_plane][0].y;
 
 			break;
 		default:
@@ -801,63 +800,44 @@ void AugmentedInstructions::SetAssemblyIndices()
 	{
 	case AssemblyStates::AssemblyStart:
 		m_step_indices.clear();
-		m_sides_to_match.clear();
 		
 		m_step_indices.push_back(0);
-		//m_step_indices.push_back(1);
-		//m_step_indices.push_back(2);
-		//m_step_indices.push_back(3);
-		//m_step_indices.push_back(4);
-
+		m_step_indices.push_back(1);
+		m_step_indices.push_back(2);
+		
 		break;
 	case AssemblyStates::AssemblyStep:
 		m_step_indices.clear();
-		m_sides_to_match.clear();
 
 		if(m_steps_current_step == 1)
 		{
 			m_step_indices.push_back(1);
 			m_step_indices.push_back(2);
-
-			m_sides_to_match.push_back(Sides::Top);
-			m_sides_to_match.push_back(Sides::Bottom);
 		}
 
 		if(m_steps_current_step == 2)
 		{
 			m_step_indices.push_back(0);
 			m_step_indices.push_back(3);
-
-			m_sides_to_match.push_back(Sides::Top);
-			m_sides_to_match.push_back(Sides::Bottom);
 		}
 
 		break;
 	case AssemblyStates::AssemblyStepFinal:
 		m_step_indices.clear();
-		m_sides_to_match.clear();
 
 		if(m_steps_current_step == 1)
 		{
 			m_step_indices.push_back(3);
-
-			m_sides_to_match.push_back(Sides::Top);
-			m_sides_to_match.push_back(Sides::Bottom);
 		}
 
 		if(m_steps_current_step == 2)
 		{
 			m_step_indices.push_back(4);
-
-			m_sides_to_match.push_back(Sides::Top);
-			m_sides_to_match.push_back(Sides::Bottom);
 		}
 
 		break;
 	case AssemblyStates::AssemblyFinal:
 		m_step_indices.clear();
-		m_sides_to_match.clear();
-
 		m_step_indices.push_back(4);
 
 		break;
@@ -869,9 +849,6 @@ void AugmentedInstructions::SetAssemblyIndices()
 
 void AugmentedInstructions::SetForNextState(unsigned timer_dur, unsigned detect_cnt)
 {
-	
-	this->m_changed_state = true;
-	this->m_changed_state_for_main = true;
 	unsigned ret = KillTimer(NULL, this->m_timer_id);
 
 	m_detected_max = detect_cnt;
@@ -894,9 +871,7 @@ void AugmentedInstructions::SetNextStateCallback()
 		std::cout << "Next State: Assembly Step [1]" << std::endl;
 		break;
 	case AssemblyStates::AssemblyStep:
-		//m_step_indices.clear();
-		//m_sides_to_match.clear();
-		
+
 		//reset for the next step
 		for(auto& blink : m_blink_sides)
 		{
@@ -909,8 +884,6 @@ void AugmentedInstructions::SetNextStateCallback()
 			SetForNextState(50, 5);
 			//m_steps_current_step++;
 			this->m_assembly_state = AssemblyStates::AssemblyStepFinal;
-			//m_step_indices.clear();
-			//m_sides_to_match.clear();
 			SetAssemblyIndices();
 
 			m_draw_slice = false;
@@ -920,8 +893,6 @@ void AugmentedInstructions::SetNextStateCallback()
 		{
 			SetForNextState(50, 5);
 			this->m_assembly_state = AssemblyStates::AssemblyStepFinal;
-			//m_step_indices.clear();
-			//m_sides_to_match.clear();
 			SetAssemblyIndices();
 
 			m_draw_slice = false;
@@ -932,8 +903,6 @@ void AugmentedInstructions::SetNextStateCallback()
 		break;
 
 	case AssemblyStates::AssemblyStepFinal:
-		//m_step_indices.clear();
-		//m_sides_to_match.clear();
 		SetAssemblyIndices();
 
 		if(m_steps_current_step < m_steps_cnt)
@@ -942,8 +911,6 @@ void AugmentedInstructions::SetNextStateCallback()
 			this->m_assembly_state = AssemblyStates::AssemblyStep;
 			m_steps_current_step++;
 
-			//m_step_indices.clear();
-			//m_sides_to_match.clear();
 			SetAssemblyIndices();
 			m_draw_slice = true;
 			std::cout << "Next State: Assembly Step[2]" << std::endl;
@@ -952,8 +919,6 @@ void AugmentedInstructions::SetNextStateCallback()
 		{
 			SetForNextState(3000, 20);
 			this->m_assembly_state = AssemblyStates::AssemblyFinal;
-			//m_step_indices.clear();
-			//m_sides_to_match.clear();
 			SetAssemblyIndices();
 
 			m_draw_slice = false;
@@ -981,7 +946,10 @@ void AugmentedInstructions::SetNextStateCallback()
 
 void AugmentedInstructions::FpsCallback()
 {
-	//std::cout << "FPS: " << m_fps << std::endl;
+	if(PRINT_INST == 1)
+	{
+		std::cout << "FPS: " << m_fps << std::endl;
+	}
 	m_fps = 0;
 }
 
@@ -1016,7 +984,6 @@ void AugmentedInstructions::CheckForNewState()
 					m_found_parts = true;
 					m_timer_id = SetTimer(NULL, 1, m_timer_duration_ms, (TIMERPROC)AugmentedInstructions::TimerProcStatic);
 				}
-				//return;
 			}
 
 			if(m_assembly_state == AssemblyStates::AssemblyStart || m_assembly_state == AssemblyStates::AssemblyFinal)

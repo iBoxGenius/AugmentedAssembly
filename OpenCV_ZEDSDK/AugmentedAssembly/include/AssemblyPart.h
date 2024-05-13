@@ -17,28 +17,41 @@
 
 #include <Windows.h>
 
+constexpr int PRINT = 0;
+
+
 class AssemblyPart {
 public:
-    //AssemblyPart(Method method, std::filesystem::path path_to_images, std::filesystem::path path_to_json, std::mutex& mutex, std::atomic<bool>& sync_var);
+   /**
+    * @brief Constructor
+    * 
+    * @param method The method for keypoints/descriptor
+    * @param path_to_images Absolute path to the folder with the images
+    * @param path_to_json Absolute path to the folder with the .json files (descriptor, keypoints)
+    * @param mutex  mutex to protect the request flag (sync_var)
+    * @param sync_var  states the request status of the AssemblyPart 
+    * @param cv conditional variable used to run/suspend the thread
+    */
     AssemblyPart(Method method, std::filesystem::path path_to_images, std::filesystem::path path_to_json, std::mutex& mutex, uint8_t& sync_var, std::condition_variable_any& cv);
-    ~AssemblyPart();                // Destructor
+    ~AssemblyPart();
 
-    void SetDescriptors(std::vector<cv::Mat>& desc);
-    std::vector<cv::Mat> GetDescriptors();
-    std::vector<cv::Mat> GetImages();
-    std::vector<std::vector<cv::KeyPoint>> GetKeypoints();
-    std::vector<std::vector<cv::DMatch>> GetFilteredMatches();
-    std::vector<cv::KeyPoint> GetKpSceneCopy();
-
+    /**
+     * @brief Provides a new set of descriptor and keypoints. Creates local copies
+     * 
+     * @param descriptor_scene New descriptor of the scene
+     * @param keypoints_scene New keypoints of the scene
+     */
     void SetNewSceneParam(cv::Mat descriptor_scene, std::vector<cv::KeyPoint> keypoints_scene);
-    //void FindMatches(const cv::Mat& descriptor_scene, const std::vector<cv::KeyPoint>& keypoints_scene);
     //Thread function
-    void FindMatches(const cv::Mat& descriptor_scene, const std::vector<cv::KeyPoint>& keypoints_scene, std::vector<std::vector<cv::Point>>& scene_corners);
 
-    inline HANDLE GetThreadHandle()
-    {
-        return GetCurrentThread();
-    }
+    /**
+     * @brief Runs in a thread. Finds the match of the object's side and updates its corner locations in the scene
+     * 
+     * @param descriptor_scene Descriptor of the scene
+     * @param keypoints_scene Keypoints of the scene
+     * @param scene_corners Transformed corner locations to the scene
+     */
+    void FindMatches(const cv::Mat& descriptor_scene, const std::vector<cv::KeyPoint>& keypoints_scene, std::vector<std::vector<cv::Point>>& scene_corners);
 
 private:
     const size_t iID;
@@ -50,21 +63,28 @@ private:
     std::vector<cv::Mat> m_descriptors;
 
     std::mutex& m_mutex;                                      //mutexes used for notifying the main thread that new object locations have been updated
-    //std::atomic<bool>& m_new_kp_rq;
-    uint8_t& m_new_kp_rq;
+    uint8_t& m_new_kp_rq;                                     
     cv::Mat m_descriptor_scene_local_cpy;
-    std::vector<cv::KeyPoint> m_keypoints_scene_local_cpy;    //std::vector
-
+    std::vector<cv::KeyPoint> m_keypoints_scene_local_cpy;
     std::condition_variable_any& m_cv;
-
-    cv::Ptr<cv::DescriptorMatcher> m_matcher_sift;
-    cv::Ptr<cv::DescriptorMatcher> m_matcher_orb;
-    cv::Ptr<cv::DescriptorMatcher> m_matcher_brisk;
-    Method m_method;
-    void LoadKeypointsFromImgs(std::filesystem::path path_to_images, std::filesystem::path path_to_json);
-    bool isRectangularShape(std::vector<cv::Point2f>& pts);
 
     std::vector<Matcher> m_matchers;
     std::vector<std::vector<cv::DMatch>> m_good_matches_filtered;
-    //void FindBestMatch();
+    Method m_method;
+
+    /**
+     * @brief Loads the images, keypoints, descriptor from the folders
+     * 
+     * @param path_to_images Absolute path to the folder with the images
+     * @param path_to_json Absolute path to the folder with the .json files (descriptor, keypoints)
+     */
+    void LoadKeypointsFromImgs(std::filesystem::path path_to_images, std::filesystem::path path_to_json);
+
+    /**
+     * @brief Calculates the angle of points that form a quad.
+     * 
+     * @param pts Points to be verified
+     * @return True if OK, otherwise false
+     */
+    bool isRectangularShape(std::vector<cv::Point2f>& pts);
 };

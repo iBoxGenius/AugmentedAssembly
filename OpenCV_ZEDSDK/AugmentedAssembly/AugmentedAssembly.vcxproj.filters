@@ -50,13 +50,13 @@
     <ClCompile Include="src\Detector.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="include\Matcher.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="src\AugmentedInstructions.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="src\main.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Matcher.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

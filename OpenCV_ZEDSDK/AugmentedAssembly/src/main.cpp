@@ -12,15 +12,8 @@ int main()
     HANDLE hProcess = GetCurrentProcess();
     SetPriorityClass(hProcess, HIGH_PRIORITY_CLASS);
     CloseHandle(hProcess);
-    
-    try
-    {
-        app.Start();
-    }
-    catch(const std::out_of_range& e)
-    {
-        std::cerr << "Vector Out of Range Exception: " << e.what() << std::endl;
-    }
+
+    app.Start();
 
     return 0;
 }
